@@ -1,0 +1,15 @@
+  procs:
+    PostgreSQL:
+      shell: make start-pg
+    server:
+      shell: make start-server
+      autostart: false
+    migrate:
+      shell: make migrate
+      autostart: false
+    clean:
+      shell: make clean
+      autostart: false
+    setup:
+      shell: make setup
+      autostart: false
