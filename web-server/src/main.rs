@@ -44,7 +44,7 @@ async fn main() {
         .route("/", get(root))
         // `POST /users` goes to `create_user`
         .route("/users", post(create_user))
-        .layer(Extension(shared_client.clone()))
+        .layer(Extension(shared_client))
         .layer(TraceLayer::new_for_http());
 
     // Define address and log it
