@@ -7,7 +7,7 @@ dev:
 dev-exec:
 	clear
 	cargo build
-	RUST_LOG=debug cargo run
+	RUST_LOG=debug cargo run --release
 
 
 .PHONY: dev-call
