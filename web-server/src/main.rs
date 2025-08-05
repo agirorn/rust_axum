@@ -1,3 +1,5 @@
+mod error;
+use axum::extract::Request;
 use axum::{
     extract::Extension,
     http::StatusCode,
@@ -9,6 +11,8 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio_postgres::NoTls;
 // use tokio_postgres::{Client, NoTls};
+use axum::response::{IntoResponse, Response};
+use error::Result;
 use tower_http::trace::TraceLayer;
 use tracing::info;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
@@ -49,7 +53,7 @@ async fn main() {
     cfg.dbname = Some("app_dev".to_string());
     cfg.keepalives = Some(true);
     cfg.manager = Some(ManagerConfig {
-        recycling_method: RecyclingMethod::Fast,
+        recycling_method: RecyclingMethod::Clean,
     });
     cfg.pool = Some(PoolConfig::new(60));
 
@@ -72,7 +76,8 @@ async fn main() {
         // .layer(Extension(shared_client))
         .layer(Extension(shared_client))
         // .layer(Extension(pool))
-        .layer(TraceLayer::new_for_http());
+        .layer(TraceLayer::new_for_http())
+        .fallback(handler_404);
 
     // Define address and log it
     let port = "0.0.0.0:3000";
@@ -86,25 +91,23 @@ async fn main() {
 //     "Hello, World!"
 // }
 
-async fn root(Extension(pool): Extension<Arc<Pool>>) -> Result<String, (StatusCode, String)> {
-    let db = pool.get().await.map_err(|e| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("Failed to get DB client: {}", e),
-        )
-    })?;
+async fn handler_404(request: Request) -> impl IntoResponse {
+    let path = request.uri().path();
+    (
+        StatusCode::NOT_FOUND,
+        Json(format!("nothing to see here {}", path)),
+    )
+}
+
+#[axum::debug_handler]
+async fn root(Extension(pool): Extension<Arc<Pool>>) -> Result<Response> {
+    let db = pool.get().await?;
     let row = db
         .query_one("SELECT message FROM greetings LIMIT 1", &[])
-        .await
-        .map_err(|e| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!("DB error: {}", e),
-            )
-        })?;
+        .await?;
 
     let message: String = row.get("message");
-    Ok(message)
+    Ok((StatusCode::OK, message).into_response())
 }
 
 async fn create_user(

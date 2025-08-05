@@ -5,6 +5,7 @@ setup:
 .PHONY: clean
 clean:
 	cd dev-tools/pg && make clean
+	cd web-server && make clean
 
 .PHONY: start
 start:
@@ -12,7 +13,7 @@ start:
 
 .PHONY: build
 build:
-	@echo "==>> features"
+	cd web-server && make build
 
 .PHONY: start-pg
 start-pg:
