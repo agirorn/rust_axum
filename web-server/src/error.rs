@@ -5,40 +5,20 @@ use axum::{
     Json,
 };
 use derive_more::From;
-
 pub type Result<T> = core::result::Result<T, Error>;
-use serde_json::json;
-// use tokio_postgres::Error as TokioPostgresError;
-
 use deadpool_postgres::PoolError;
-// use deadpool::managed::errors::PoolError;
-// use tokio_postgres::Error as TokioPostgresError;
-
+use serde_json::json;
 use std::env;
 
 #[allow(clippy::enum_variant_names)]
 #[derive(Debug, From)]
 pub enum Error {
-    // // -- String errors
     #[from]
     Message(String),
     #[from]
     TokioPostgresError(tokio_postgres::Error),
     #[from]
     PoolError(PoolError),
-    // PoolError::<TokioPostgresError>,
-    // #[from]
-    // JsonError(serde_json::Error),
-    // #[from]
-    // Ed25519Pkcs8SpkiError(ed25519_dalek::pkcs8::spki::Error),
-    // #[from]
-    // Ed25519Pkcs8Error(ed25519_dalek::pkcs8::Error),
-    // #[from]
-    // Ed25519Error(ed25519_dalek::ed25519::Error),
-    // #[from]
-    // Base64DecodeError(base64::DecodeError),
-    // #[from]
-    // StringFromUtf8Error(std::string::FromUtf8Error),
 }
 
 impl core::fmt::Display for Error {

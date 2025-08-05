@@ -1,23 +1,22 @@
+#![allow(unused)]
 mod error;
 use axum::extract::Request;
 use axum::{
     extract::Extension,
     http::StatusCode,
+    response::{IntoResponse, Response},
     routing::{get, post},
     Json, Router,
 };
 use deadpool_postgres::{Config, ManagerConfig, Pool, PoolConfig, RecyclingMethod};
+use error::Result;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio_postgres::NoTls;
-// use tokio_postgres::{Client, NoTls};
-use axum::response::{IntoResponse, Response};
-use error::Result;
 use tower_http::trace::TraceLayer;
 use tracing::info;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
-// #[tokio::main]
 #[tokio::main(flavor = "multi_thread")]
 async fn main() {
     tracing_subscriber::registry()
@@ -27,23 +26,6 @@ async fn main() {
         )
         .with(tracing_subscriber::fmt::layer())
         .init();
-
-    // // connect to Postgres
-    // let (client, connection) = tokio_postgres::connect(
-    //     "host=localhost user=admin password=admin dbname=app_dev",
-    //     NoTls,
-    // )
-    // .await
-    // .expect("Failed to connect to Postgres");
-
-    // // spawn the connection task
-    // tokio::spawn(async move {
-    //     if let Err(e) = connection.await {
-    //         eprintln!("DB connection error: {}", e);
-    //     }
-    // });
-
-    // let shared_client = Arc::new(client);
 
     // Set up the Deadpool config
     let mut cfg = Config::new();
@@ -67,15 +49,11 @@ async fn main() {
     assert_eq!(pool.status().max_size, 60);
     let shared_client = Arc::new(pool);
 
-    // build our application with a route
+    // Build our application with a route
     let app = Router::new()
-        // `GET /` goes to `root`
         .route("/", get(root))
-        // `POST /users` goes to `create_user`
         .route("/users", post(create_user))
-        // .layer(Extension(shared_client))
         .layer(Extension(shared_client))
-        // .layer(Extension(pool))
         .layer(TraceLayer::new_for_http())
         .fallback(handler_404);
 
@@ -86,11 +64,6 @@ async fn main() {
     axum::serve(listener, app).await.unwrap();
 }
 
-// // basic handler that responds with a static string
-// async fn root() -> &'static str {
-//     "Hello, World!"
-// }
-
 async fn handler_404(request: Request) -> impl IntoResponse {
     let path = request.uri().path();
     (
@@ -100,39 +73,39 @@ async fn handler_404(request: Request) -> impl IntoResponse {
 }
 
 #[axum::debug_handler]
-async fn root(Extension(pool): Extension<Arc<Pool>>) -> Result<Response> {
+async fn root(Extension(pool): Extension<Arc<Pool>>) -> Result<impl IntoResponse> {
     let db = pool.get().await?;
     let row = db
         .query_one("SELECT message FROM greetings LIMIT 1", &[])
         .await?;
 
     let message: String = row.get("message");
-    Ok((StatusCode::OK, message).into_response())
+    Ok((StatusCode::CREATED, message))
 }
 
 async fn create_user(
     // this argument tells axum to parse the request body
     // as JSON into a `CreateUser` type
     Json(payload): Json<CreateUser>,
-) -> (StatusCode, Json<User>) {
-    // insert your application logic here
+) -> Result<impl IntoResponse> {
+    // Insert your application logic here
     let user = User {
         id: 1337,
         username: payload.username,
     };
 
-    // this will be converted into a JSON response
+    // This will be converted into a JSON response
     // with a status code of `201 Created`
-    (StatusCode::CREATED, Json(user))
+    Ok((StatusCode::CREATED, Json(user)))
 }
 
-// the input to our `create_user` handler
+// The input to our `create_user` handler
 #[derive(Deserialize)]
 struct CreateUser {
     username: String,
 }
 
-// the output to our `create_user` handler
+// The output to our `create_user` handler
 #[derive(Serialize)]
 struct User {
     id: u64,
