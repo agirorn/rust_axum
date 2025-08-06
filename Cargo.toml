@@ -2,7 +2,7 @@
 name = "runs_axum"
 version = "0.0.0"
 resolver = "2"
-members = ["web-server"]
+members = ["users", "web-server"]
 
 [workspace.dependencies]
 axum = { version = "0.8.4", features = ["http2", "macros", "multipart", "ws"] }
@@ -19,3 +19,10 @@ tokio-postgres = { version = "0.7", features = [
 ] }
 deadpool-postgres = "0.10"
 derive_more = { version = "1.0.0", features = ["from", "display"] }
+pgmt = { git = "http://github.com/agirorn/pgmt.git", rev = "36e7aff1406cd5e5c01bce49e06e3b9b173fedb1" }
+pgmt_cli = { git = "http://github.com/agirorn/pgmt.git", rev = "36e7aff1406cd5e5c01bce49e06e3b9b173fedb1" }
+pgmt_core = { git = "http://github.com/agirorn/pgmt.git", rev = "36e7aff1406cd5e5c01bce49e06e3b9b173fedb1" }
+pgmt_macros = { git = "http://github.com/agirorn/pgmt.git", rev = "36e7aff1406cd5e5c01bce49e06e3b9b173fedb1" }
+async-trait = "0.1.88"
+pretty_assertions = "1.4.1"
+uuid = { version = "1.17.0", features = ["v4", "serde"] }

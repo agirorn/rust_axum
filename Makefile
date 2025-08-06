@@ -1,5 +1,6 @@
 .PHONY: setup
 setup:
+	test -e .env || cp .env-development .env
 	cd dev-tools/pg && make setup
 
 .PHONY: clean
