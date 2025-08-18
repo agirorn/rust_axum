@@ -2,7 +2,7 @@
 name = "runs_axum"
 version = "0.0.0"
 resolver = "2"
-members = ["users", "web-server"]
+members = ["users", "users_2", "web-server"]
 
 [workspace.dependencies]
 axum = { version = "0.8.4", features = ["http2", "macros", "multipart", "ws"] }

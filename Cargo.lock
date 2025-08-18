@@ -1920,6 +1920,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "users_2"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "derive_more",
+ "pgmt",
+ "pgmt_core",
+ "pretty_assertions",
+ "serde",
+ "serde_json",
+ "tokio",
+ "uuid 1.17.0",
+]
+
+[[package]]
 name = "utf-8"
 version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"

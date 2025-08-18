@@ -1,0 +1,15 @@
+[package]
+name = "users_2"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+pgmt = { workspace = true }
+pgmt_core = { workspace = true }
+tokio = { workspace = true }
+async-trait = { workspace = true }
+derive_more = { workspace = true }
+serde_json = { workspace = true }
+serde = { workspace = true }
+uuid = { workspace = true }
+pretty_assertions = { workspace = true }
