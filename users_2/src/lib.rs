@@ -35,7 +35,7 @@ mod tests {
         assert_eq!(result, 4);
     }
 
-    async fn creat_user(event_store: &mut impl UserEventStoreExt) -> Result<()> {
+    async fn creat_user(event_store: &mut UserEventStore) -> Result<()> {
         User::execute(
             event_store,
             UserCommand::Create(command::Create {
@@ -100,23 +100,19 @@ trait Aggregate: Sized {
     type Command;
     type Event;
     type Result;
+    type State;
+    type Store: EventStore<Event = Self::Event, State = Self::State>;
 
-    async fn execute(
-        event_store: &mut impl UserEventStoreExt,
-        cmd: Self::Command,
-    ) -> Result<Self::Result>;
+    async fn execute(event_store: &mut Self::Store, cmd: Self::Command) -> Result<Self::Result>;
     async fn handle_command(&mut self, cmd: Self::Command) -> Result<Self::Result>;
-    async fn load_from(
-        event_store: &mut impl UserEventStoreExt,
-        aggregate_id: Uuid,
-    ) -> Result<Self>;
-    async fn save_to(&mut self, event_store: &mut impl UserEventStoreExt) -> Result<()>;
+    async fn load_from(event_store: &mut Self::Store, aggregate_id: Uuid) -> Result<Self>;
+    async fn save_to(&mut self, event_store: &mut Self::Store) -> Result<()>;
     async fn apply(&mut self, event: Self::Event, save: bool) -> Result<()>;
     fn get_uncommitted_events(&mut self) -> Vec<Self::Event>;
 }
 
 #[async_trait]
-trait EventStore {
+trait EventStore: Send + Debug {
     type Event;
     type State;
     async fn save(&mut self, events: &mut Vec<Self::Event>, state: &Self::State) -> Result<()>;
@@ -137,27 +133,15 @@ impl User {
     }
 }
 
-trait UserEventStoreExt: EventStore<Event = UserEvent, State = UserState> + Send + Debug {}
-impl<T> UserEventStoreExt for T where
-    T: EventStore<Event = UserEvent, State = UserState> + Send + Debug
-{
-}
-
 #[async_trait]
-impl Aggregate for User
-where
-    UserEvent: Debug,
-    UserCommand: Debug,
-{
+impl Aggregate for User {
     type Command = UserCommand;
     type Result = ();
     type Event = UserEvent;
+    type State = UserState;
+    type Store = UserEventStore;
 
-    async fn execute(
-        event_store: &mut impl UserEventStoreExt,
-
-        cmd: Self::Command,
-    ) -> Result<Self::Result> {
+    async fn execute(event_store: &mut Self::Store, cmd: Self::Command) -> Result<Self::Result> {
         let mut aggregate = User::load_from(event_store, cmd.aggregate_id()).await?;
         let result = aggregate.handle_command(cmd).await?;
         event_store
@@ -204,10 +188,7 @@ where
         Ok(())
     }
 
-    async fn load_from(
-        event_store: &mut impl UserEventStoreExt,
-        aggregate_id: Uuid,
-    ) -> Result<User> {
+    async fn load_from(event_store: &mut Self::Store, aggregate_id: Uuid) -> Result<User> {
         let user = User::new(aggregate_id);
         // let stream = event_store.stream(aggregate_id).await;
         // while let Some(event) = stream.next().await {
@@ -215,7 +196,7 @@ where
         // }
         Ok(user)
     }
-    async fn save_to(&mut self, event_store: &mut impl UserEventStoreExt) -> Result<()> {
+    async fn save_to(&mut self, event_store: &mut Self::Store) -> Result<()> {
         // event_store.write(self.get_uncommitted_events().await?);
         Ok(())
     }
