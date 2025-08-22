@@ -18,6 +18,11 @@ pub fn add(left: u64, right: u64) -> u64 {
     left + right
 }
 
+#[derive(Clone, Default, Deserialize, Serialize, Debug, PartialEq, Eq)]
+struct UserState {
+    aggregate_id: Uuid,
+}
+
 mod tests {
     use super::*;
     use pretty_assertions::assert_eq;
@@ -31,7 +36,7 @@ mod tests {
     }
 
     async fn creat_user(
-        event_store: &mut (impl EventStore<UserEvent> + Send + Debug),
+        event_store: &mut (impl EventStore<UserEvent, UserState> + Send + Debug),
     ) -> Result<()> {
         User::execute(
             event_store,
@@ -59,6 +64,12 @@ mod tests {
                 event_id: event.get_event_id(),
                 username: "username".to_string(),
             })
+        );
+        assert_eq!(
+            event_store.get_state_for(&USER_ID_AGGREGATE_ID),
+            &UserState {
+                aggregate_id: USER_ID_AGGREGATE_ID,
+            },
         );
     }
 
@@ -93,38 +104,38 @@ trait Aggregate: Sized {
     type Result;
 
     async fn execute(
-        event_store: &mut (impl EventStore<Self::Event> + Send + Debug),
+        event_store: &mut (impl EventStore<Self::Event, UserState> + Send + Debug),
         cmd: Self::Command,
     ) -> Result<Self::Result>;
     async fn handle_command(&mut self, cmd: Self::Command) -> Result<Self::Result>;
     async fn load_from(
-        event_store: &mut (impl EventStore<Self::Event> + Send + Debug),
+        event_store: &mut (impl EventStore<Self::Event, UserState> + Send + Debug),
         aggregate_id: Uuid,
     ) -> Result<Self>;
     async fn save_to(
         &mut self,
-        event_store: &mut (impl EventStore<Self::Event> + Send + Debug),
+        event_store: &mut (impl EventStore<Self::Event, UserState> + Send + Debug),
     ) -> Result<()>;
     async fn apply(&mut self, event: Self::Event, save: bool) -> Result<()>;
     fn get_uncommitted_events(&mut self) -> Vec<Self::Event>;
 }
 
 #[async_trait]
-trait EventStore<Event> {
-    async fn save(&mut self, events: &mut Vec<Event>) -> Result<()>;
+trait EventStore<Event, State> {
+    async fn save(&mut self, events: &mut Vec<Event>, state: &State) -> Result<()>;
 }
 
 #[derive(Default, Debug, Deserialize, Serialize)]
 struct User {
-    aggregate_id: Uuid,
     events: Vec<UserEvent>,
+    state: UserState,
 }
 
 impl User {
     pub fn new(aggregate_id: Uuid) -> Self {
         Self {
             events: vec![],
-            aggregate_id,
+            state: UserState { aggregate_id },
         }
     }
 }
@@ -140,13 +151,13 @@ where
     type Event = UserEvent;
 
     async fn execute(
-        event_store: &mut (impl EventStore<UserEvent> + Send + Debug),
+        event_store: &mut (impl EventStore<UserEvent, UserState> + Send + Debug),
         cmd: Self::Command,
     ) -> Result<Self::Result> {
         let mut aggregate = User::load_from(event_store, cmd.aggregate_id()).await?;
         let result = aggregate.handle_command(cmd).await?;
         event_store
-            .save(&mut aggregate.get_uncommitted_events())
+            .save(&mut aggregate.get_uncommitted_events(), &aggregate.state)
             .await?;
         Ok(())
     }
@@ -157,7 +168,7 @@ where
             UserCommand::Create(cmd) => {
                 self.apply(
                     UserEvent::Created(event::Created {
-                        aggregate_id: self.aggregate_id,
+                        aggregate_id: self.state.aggregate_id,
                         event_id: Uuid::new_v4(),
                         username: "username".to_string(),
                     }),
@@ -169,7 +180,7 @@ where
             UserCommand::Delete(cmd) => {
                 self.apply(
                     UserEvent::Deleted(event::Deleted {
-                        aggregate_id: self.aggregate_id,
+                        aggregate_id: self.state.aggregate_id,
                         event_id: Uuid::new_v4(),
                     }),
                     true,
@@ -190,7 +201,7 @@ where
     }
 
     async fn load_from(
-        event_store: &mut (impl EventStore<UserEvent> + Send + Debug),
+        event_store: &mut (impl EventStore<UserEvent, UserState> + Send + Debug),
         aggregate_id: Uuid,
     ) -> Result<User> {
         let user = User::new(aggregate_id);
@@ -202,7 +213,7 @@ where
     }
     async fn save_to(
         &mut self,
-        event_store: &mut (impl EventStore<UserEvent> + Send + Debug),
+        event_store: &mut (impl EventStore<UserEvent, UserState> + Send + Debug),
     ) -> Result<()> {
         // event_store.write(self.get_uncommitted_events().await?);
         Ok(())
@@ -223,6 +234,7 @@ where
 #[derive(Default, Debug)]
 struct UserEventStore {
     events: Vec<UserEvent>,
+    states: std::collections::HashMap<Uuid, UserState>,
 }
 
 impl UserEventStore {
@@ -237,12 +249,17 @@ impl UserEventStore {
     fn get_event(&self, index: usize) -> Option<&UserEvent> {
         self.events.get(index)
     }
+    fn get_state_for(&self, aggregate_id: &Uuid) -> &UserState {
+        self.states.get(aggregate_id).unwrap()
+    }
 }
 
 #[async_trait]
-impl EventStore<UserEvent> for UserEventStore {
-    async fn save(&mut self, events: &mut Vec<UserEvent>) -> Result<()> {
+impl EventStore<UserEvent, UserState> for UserEventStore {
+    async fn save(&mut self, events: &mut Vec<UserEvent>, state: &UserState) -> Result<()> {
         self.events.append(events);
+        let state = state.clone();
+        self.states.insert(state.aggregate_id, state);
         Ok(())
     }
 }
