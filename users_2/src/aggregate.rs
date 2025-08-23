@@ -1,4 +1,4 @@
-use crate::command::UserCommand;
+use crate::command::{self, UserCommand};
 use crate::error::Result;
 use crate::event::{self, UserEvent};
 use crate::state::UserState;
@@ -42,31 +42,10 @@ impl Aggregate for User {
         Ok(())
     }
 
-    // The result here should probably be Self::CommandResult
     async fn handle_command(&mut self, cmd: Self::Command) -> Self::Result {
         match cmd {
-            UserCommand::Create(cmd) => {
-                self.apply(
-                    UserEvent::Created(event::Created {
-                        aggregate_id: self.state.aggregate_id,
-                        event_id: Uuid::new_v4(),
-                        username: "username".to_string(),
-                    }),
-                    true,
-                )
-                .await?;
-                // uuid::uuid!("aba80c9b-21c6-4fee-b046-7b069f8d9120")
-            }
-            UserCommand::Delete(cmd) => {
-                self.apply(
-                    UserEvent::Deleted(event::Deleted {
-                        aggregate_id: self.state.aggregate_id,
-                        event_id: Uuid::new_v4(),
-                    }),
-                    true,
-                )
-                .await?;
-            }
+            UserCommand::Create(cmd) => self.handle_create(cmd).await?,
+            UserCommand::Delete(cmd) => self.handle_delete(cmd).await?,
             UserCommand::Enable(cmd) => {
                 unimplemented!("UserCommand::Delete");
             }
@@ -102,8 +81,34 @@ impl Aggregate for User {
         Ok(())
     }
 
-    // UserEvent should probably be Self::Event here
     fn get_uncommitted_events(&mut self) -> Vec<Self::Event> {
         self.events.clone()
+    }
+}
+
+impl User {
+    async fn handle_create(&mut self, cmd: command::Create) -> Result<()> {
+        self.apply(
+            UserEvent::Created(event::Created {
+                aggregate_id: self.state.aggregate_id,
+                event_id: Uuid::new_v4(),
+                username: "username".to_string(),
+            }),
+            true,
+        )
+        .await?;
+        Ok(())
+    }
+
+    async fn handle_delete(&mut self, cmd: command::Delete) -> Result<()> {
+        self.apply(
+            UserEvent::Deleted(event::Deleted {
+                aggregate_id: self.state.aggregate_id,
+                event_id: Uuid::new_v4(),
+            }),
+            true,
+        )
+        .await?;
+        Ok(())
     }
 }
