@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 pgmt = { workspace = true }
+eventsourced_core = { workspace = true }
 pgmt_core = { workspace = true }
 tokio = { workspace = true }
 async-trait = { workspace = true }

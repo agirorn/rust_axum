@@ -1,0 +1,109 @@
+use crate::command::UserCommand;
+use crate::error::Result;
+use crate::event::{self, UserEvent};
+use crate::state::UserState;
+use crate::store::UserEventStore;
+use async_trait::async_trait;
+use eventsourced_core::{Aggregate, EventStore};
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
+
+#[derive(Default, Debug, Deserialize, Serialize)]
+pub struct User {
+    events: Vec<UserEvent>,
+    state: UserState,
+}
+
+impl User {
+    pub fn new(aggregate_id: Uuid) -> Self {
+        Self {
+            events: vec![],
+            state: UserState { aggregate_id },
+        }
+    }
+}
+
+#[async_trait]
+impl Aggregate for User {
+    type Command = UserCommand;
+    type Result = Result<()>;
+    type LoadResult = Result<Self>;
+    type Event = UserEvent;
+    type State = UserState;
+    type Store = UserEventStore;
+    type AggregateId = Uuid;
+
+    async fn execute(event_store: &mut Self::Store, cmd: Self::Command) -> Self::Result {
+        let mut aggregate = User::load_from(event_store, cmd.aggregate_id()).await?;
+        let result = aggregate.handle_command(cmd).await?;
+        event_store
+            .save(&mut aggregate.get_uncommitted_events(), &aggregate.state)
+            .await?;
+        Ok(())
+    }
+
+    // The result here should probably be Self::CommandResult
+    async fn handle_command(&mut self, cmd: Self::Command) -> Self::Result {
+        match cmd {
+            UserCommand::Create(cmd) => {
+                self.apply(
+                    UserEvent::Created(event::Created {
+                        aggregate_id: self.state.aggregate_id,
+                        event_id: Uuid::new_v4(),
+                        username: "username".to_string(),
+                    }),
+                    true,
+                )
+                .await?;
+                // uuid::uuid!("aba80c9b-21c6-4fee-b046-7b069f8d9120")
+            }
+            UserCommand::Delete(cmd) => {
+                self.apply(
+                    UserEvent::Deleted(event::Deleted {
+                        aggregate_id: self.state.aggregate_id,
+                        event_id: Uuid::new_v4(),
+                    }),
+                    true,
+                )
+                .await?;
+            }
+            UserCommand::Enable(cmd) => {
+                unimplemented!("UserCommand::Delete");
+            }
+            UserCommand::Disable(cmd) => {
+                unimplemented!("UserCommand::Delete");
+            }
+            UserCommand::SetPassword(cmd) => {
+                unimplemented!("UserCommand::Delete");
+            }
+        }
+        Ok(())
+    }
+
+    async fn load_from(
+        event_store: &mut Self::Store,
+        aggregate_id: Self::AggregateId,
+    ) -> Self::LoadResult {
+        let user = User::new(aggregate_id);
+        // let stream = event_store.stream(aggregate_id).await;
+        // while let Some(event) = stream.next().await {
+        //     user.apply(event, false);
+        // }
+        Ok(user)
+    }
+    async fn save_to(&mut self, event_store: &mut Self::Store) -> Self::Result {
+        // event_store.write(self.get_uncommitted_events().await?);
+        Ok(())
+    }
+    async fn apply(&mut self, event: UserEvent, save: bool) -> Self::Result {
+        if save {
+            self.events.push(event);
+        }
+        Ok(())
+    }
+
+    // UserEvent should probably be Self::Event here
+    fn get_uncommitted_events(&mut self) -> Vec<Self::Event> {
+        self.events.clone()
+    }
+}
