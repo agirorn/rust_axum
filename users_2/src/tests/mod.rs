@@ -4,7 +4,7 @@ use crate::command::{self, UserCommand};
 use crate::error::Result;
 use crate::event::{self, UserEvent};
 use crate::state::UserState;
-use crate::tests::store::TestUserEventStore;
+use crate::tests::store::TestUserEventStore as Users;
 use eventsourced_core::{Aggregate, EventStoreFor};
 use pretty_assertions::assert_eq;
 use uuid::Uuid;
@@ -26,10 +26,10 @@ async fn creat_user(event_store: &mut impl EventStoreFor<User>) -> Result<()> {
 
 #[tokio::test]
 async fn create_user() {
-    let mut event_store = TestUserEventStore::default();
-    creat_user(&mut event_store).await.unwrap();
-    assert_eq!(event_store.event_count(), 1);
-    let event = event_store.get_event(0).unwrap();
+    let mut store = Users::default();
+    creat_user(&mut store).await.unwrap();
+    assert_eq!(store.event_count(), 1);
+    let event = store.get_event(0).unwrap();
     assert_eq!(
         event,
         &UserEvent::Created(event::Created {
@@ -42,28 +42,25 @@ async fn create_user() {
         aggregate_id: USER_ID_AGGREGATE_ID,
         exists: true,
     };
-    let store_state = event_store.get_state_for(&USER_ID_AGGREGATE_ID);
-    let aggregate = User::load_from(&event_store, USER_ID_AGGREGATE_ID)
-        .await
-        .unwrap();
-    assert_eq!(expected_state, store_state);
+    let aggregate = User::load(&store, USER_ID_AGGREGATE_ID).await.unwrap();
     assert_eq!(expected_state, aggregate.state);
+    assert_eq!(expected_state, store.get_state_for(&USER_ID_AGGREGATE_ID));
 }
 
 #[tokio::test]
 async fn delete_user() {
-    let mut event_store = TestUserEventStore::default();
-    creat_user(&mut event_store).await.unwrap();
+    let mut store = Users::default();
+    creat_user(&mut store).await.unwrap();
     User::execute(
-        &mut event_store,
+        &mut store,
         UserCommand::Delete(command::Delete {
             aggregate_id: USER_ID_AGGREGATE_ID,
         }),
     )
     .await
     .unwrap();
-    assert_eq!(event_store.event_count(), 2);
-    let event = event_store.get_event(1).unwrap();
+    assert_eq!(store.event_count(), 2);
+    let event = store.get_event(1).unwrap();
     assert_eq!(
         event,
         &UserEvent::Deleted(event::Deleted {
@@ -75,10 +72,7 @@ async fn delete_user() {
         aggregate_id: USER_ID_AGGREGATE_ID,
         exists: false,
     };
-    let store_state = event_store.get_state_for(&USER_ID_AGGREGATE_ID);
-    let aggregate = User::load_from(&event_store, USER_ID_AGGREGATE_ID)
-        .await
-        .unwrap();
-    assert_eq!(expected_state, store_state);
+    let aggregate = User::load(&store, USER_ID_AGGREGATE_ID).await.unwrap();
     assert_eq!(expected_state, aggregate.state);
+    assert_eq!(expected_state, store.get_state_for(&USER_ID_AGGREGATE_ID));
 }

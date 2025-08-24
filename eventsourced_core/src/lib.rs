@@ -24,7 +24,7 @@ pub trait Aggregate: Sized {
         ES: EventStoreFor<Self>,
     {
         // Default implementation for the aggregate execute so that all aggregates don't have to,
-        let mut aggregate = Self::load_from(event_store, cmd.aggregate_id()).await?;
+        let mut aggregate = Self::load(event_store, cmd.aggregate_id()).await?;
         let result = aggregate.handle(cmd).await?;
         event_store
             .save(
@@ -37,7 +37,7 @@ pub trait Aggregate: Sized {
 
     async fn handle(&mut self, cmd: Self::Command) -> Result<Self::CommandResult, Self::Error>;
 
-    async fn load_from<ES>(
+    async fn load<ES>(
         event_store: &ES,
         aggregate_id: Self::AggregateId,
     ) -> Result<Self, Self::Error>
