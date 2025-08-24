@@ -22,7 +22,7 @@ impl EventStore for UserEventStore {
         unimplemented!("EventStore.save is not implemented for EventStore");
     }
 
-    fn stream_events(&self, _id: Self::AggregateId) -> BoxEventStream<Self::Event, Self::Error> {
+    fn event_stream(&self, _id: Self::AggregateId) -> BoxEventStream<Self::Event, Self::Error> {
         let items: Vec<_> = vec![];
         Box::pin(stream::iter(items))
     }

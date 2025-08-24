@@ -53,7 +53,7 @@ pub trait EventStore: Send + Sync + Debug {
     ) -> Result<(), Self::Error>;
 
     // Stream all events for an aggregate
-    fn stream_events(&self, id: Self::AggregateId) -> BoxEventStream<Self::Event, Self::Error>;
+    fn event_stream(&self, id: Self::AggregateId) -> BoxEventStream<Self::Event, Self::Error>;
 }
 
 /// EventStoreFor is a nice alias for the EventStore

@@ -62,8 +62,8 @@ impl Aggregate for User {
         ES: EventStoreFor<Self>,
     {
         let mut user = User::new(aggregate_id);
-        let mut stream = event_store.stream_events(aggregate_id);
-        while let Some(event) = stream.next().await {
+        let mut events = event_store.event_stream(aggregate_id);
+        while let Some(event) = events.next().await {
             let event = event?;
             user.apply(event, false).await?;
         }

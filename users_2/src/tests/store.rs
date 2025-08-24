@@ -44,7 +44,7 @@ impl EventStore for UserEventStore {
         Ok(())
     }
 
-    fn stream_events(&self, id: Self::AggregateId) -> BoxEventStream<Self::Event, Self::Error> {
+    fn event_stream(&self, id: Self::AggregateId) -> BoxEventStream<Self::Event, Self::Error> {
         let items: Vec<_> = self
             .events
             .iter()
