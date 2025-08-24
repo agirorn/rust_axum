@@ -8,19 +8,10 @@ use eventsourced_core::{Aggregate, EventStore};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-#[derive(Default, Debug, Deserialize, Serialize)]
+#[derive(Default, Debug)]
 pub struct User {
     events: Vec<UserEvent>,
     state: UserState,
-}
-
-impl User {
-    pub fn new(aggregate_id: Uuid) -> Self {
-        Self {
-            events: vec![],
-            state: UserState { aggregate_id },
-        }
-    }
 }
 
 #[async_trait]
@@ -87,6 +78,13 @@ impl Aggregate for User {
 }
 
 impl User {
+    pub fn new(aggregate_id: Uuid) -> Self {
+        Self {
+            events: vec![],
+            state: UserState { aggregate_id },
+        }
+    }
+
     async fn handle_create(&mut self, cmd: command::Create) -> Result<()> {
         self.apply(
             UserEvent::Created(event::Created {
