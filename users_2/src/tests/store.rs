@@ -7,12 +7,12 @@ use futures_util::stream;
 use uuid::Uuid;
 
 #[derive(Default, Debug)]
-pub struct UserEventStore {
+pub struct TestUserEventStore {
     events: Vec<UserEvent>,
     states: std::collections::HashMap<Uuid, UserState>,
 }
 
-impl UserEventStore {
+impl TestUserEventStore {
     // pub fn get_events(&self) -> Vec<UserEvent> {
     //     self.events.clone()
     // }
@@ -31,7 +31,7 @@ impl UserEventStore {
 }
 
 #[async_trait]
-impl EventStore for UserEventStore {
+impl EventStore for TestUserEventStore {
     type Event = UserEvent;
     type State = UserState;
     type Error = Error;

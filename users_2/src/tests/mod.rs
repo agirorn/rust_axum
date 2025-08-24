@@ -4,14 +4,14 @@ use crate::command::{self, UserCommand};
 use crate::error::Result;
 use crate::event::{self, UserEvent};
 use crate::state::UserState;
-use crate::tests::store::UserEventStore;
-use eventsourced_core::Aggregate;
+use crate::tests::store::TestUserEventStore;
+use eventsourced_core::{Aggregate, EventStoreFor};
 use pretty_assertions::assert_eq;
 use uuid::Uuid;
 
 const USER_ID_AGGREGATE_ID: Uuid = uuid::uuid!("aba80c9b-21c6-4fee-b046-7b069f8d9120");
 
-async fn creat_user(event_store: &mut UserEventStore) -> Result<()> {
+async fn creat_user(event_store: &mut impl EventStoreFor<User>) -> Result<()> {
     User::execute(
         event_store,
         UserCommand::Create(command::Create {
@@ -26,7 +26,7 @@ async fn creat_user(event_store: &mut UserEventStore) -> Result<()> {
 
 #[tokio::test]
 async fn create_user() {
-    let mut event_store = UserEventStore::default();
+    let mut event_store = TestUserEventStore::default();
     creat_user(&mut event_store).await.unwrap();
     assert_eq!(event_store.event_count(), 1);
     let event = event_store.get_event(0).unwrap();
@@ -52,7 +52,7 @@ async fn create_user() {
 
 #[tokio::test]
 async fn delete_user() {
-    let mut event_store = UserEventStore::default();
+    let mut event_store = TestUserEventStore::default();
     creat_user(&mut event_store).await.unwrap();
     User::execute(
         &mut event_store,
