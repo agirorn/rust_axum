@@ -1,9 +1,9 @@
-// use crate::error::Error;
 use crate::error::{Error, Result};
 use crate::event::UserEvent;
 use crate::state::UserState;
 use async_trait::async_trait;
-use eventsourced_core::EventStore;
+use eventsourced_core::{BoxEventStream, EventStore};
+use futures_util::stream;
 use uuid::Uuid;
 
 #[derive(Default, Debug)]
@@ -25,8 +25,8 @@ impl UserEventStore {
         self.events.get(index)
     }
 
-    pub fn get_state_for(&self, aggregate_id: &Uuid) -> &UserState {
-        self.states.get(aggregate_id).unwrap()
+    pub fn get_state_for(&self, aggregate_id: &Uuid) -> UserState {
+        self.states.get(aggregate_id).unwrap().clone()
     }
 }
 
@@ -35,11 +35,23 @@ impl EventStore for UserEventStore {
     type Event = UserEvent;
     type State = UserState;
     type Error = Error;
+    type AggregateId = Uuid;
 
     async fn save(&mut self, events: &mut Vec<Self::Event>, state: &Self::State) -> Result<()> {
         self.events.append(events);
         let state = state.clone();
         self.states.insert(state.aggregate_id, state);
         Ok(())
+    }
+
+    fn stream_events(&self, id: Self::AggregateId) -> BoxEventStream<Self::Event, Self::Error> {
+        let items: Vec<_> = self
+            .events
+            .iter()
+            .filter(move |a| id == a.get_aggregate_id())
+            .map(|e| Ok(e.clone())) // requires MyEvent: Clone
+            .collect();
+
+        Box::pin(stream::iter(items))
     }
 }

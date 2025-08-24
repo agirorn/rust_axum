@@ -27,7 +27,6 @@ async fn creat_user(event_store: &mut UserEventStore) -> Result<()> {
 #[tokio::test]
 async fn create_user() {
     let mut event_store = UserEventStore::default();
-
     creat_user(&mut event_store).await.unwrap();
     assert_eq!(event_store.event_count(), 1);
     let event = event_store.get_event(0).unwrap();
@@ -39,12 +38,16 @@ async fn create_user() {
             username: "username".to_string(),
         })
     );
-    assert_eq!(
-        event_store.get_state_for(&USER_ID_AGGREGATE_ID),
-        &UserState {
-            aggregate_id: USER_ID_AGGREGATE_ID,
-        },
-    );
+    let expected_state = UserState {
+        aggregate_id: USER_ID_AGGREGATE_ID,
+        exists: true,
+    };
+    let store_state = event_store.get_state_for(&USER_ID_AGGREGATE_ID);
+    let aggregate = User::load_from(&event_store, USER_ID_AGGREGATE_ID)
+        .await
+        .unwrap();
+    assert_eq!(expected_state, store_state);
+    assert_eq!(expected_state, aggregate.state);
 }
 
 #[tokio::test]
@@ -68,4 +71,14 @@ async fn delete_user() {
             event_id: event.get_event_id(),
         })
     );
+    let expected_state = UserState {
+        aggregate_id: USER_ID_AGGREGATE_ID,
+        exists: false,
+    };
+    let store_state = event_store.get_state_for(&USER_ID_AGGREGATE_ID);
+    let aggregate = User::load_from(&event_store, USER_ID_AGGREGATE_ID)
+        .await
+        .unwrap();
+    assert_eq!(expected_state, store_state);
+    assert_eq!(expected_state, aggregate.state);
 }

@@ -5,12 +5,14 @@ use crate::state::UserState;
 // use crate::store::UserEventStore;
 use async_trait::async_trait;
 use eventsourced_core::{Aggregate, EventStoreFor};
+// use futures_util::StreamExt;
+use futures_util::StreamExt;
 use uuid::Uuid;
 
 #[derive(Default, Debug)]
 pub struct User {
     events: Vec<UserEvent>,
-    state: UserState,
+    pub state: UserState,
 }
 
 #[async_trait]
@@ -55,18 +57,16 @@ impl Aggregate for User {
         Ok(())
     }
 
-    async fn load_from<ES>(
-        _event_store: &mut ES,
-        aggregate_id: Self::AggregateId,
-    ) -> Self::LoadResult
+    async fn load_from<ES>(event_store: &ES, aggregate_id: Self::AggregateId) -> Self::LoadResult
     where
         ES: EventStoreFor<Self>,
     {
-        let user = User::new(aggregate_id);
-        // let stream = event_store.stream(aggregate_id).await;
-        // while let Some(event) = stream.next().await {
-        //     user.apply(event, false);
-        // }
+        let mut user = User::new(aggregate_id);
+        let mut stream = event_store.stream_events(aggregate_id);
+        while let Some(event) = stream.next().await {
+            let event = event?;
+            user.apply(event, false).await?;
+        }
         Ok(user)
     }
 
@@ -78,7 +78,9 @@ impl Aggregate for User {
         Ok(())
     }
 
+    // This function should not be async
     async fn apply(&mut self, event: UserEvent, save: bool) -> Self::Result {
+        self.proccess_event(&event);
         if save {
             self.events.push(event);
         }
@@ -94,7 +96,10 @@ impl User {
     pub fn new(aggregate_id: Uuid) -> Self {
         Self {
             events: vec![],
-            state: UserState { aggregate_id },
+            state: UserState {
+                aggregate_id,
+                exists: false,
+            },
         }
     }
 
@@ -121,5 +126,25 @@ impl User {
         )
         .await?;
         Ok(())
+    }
+
+    fn proccess_event(&mut self, event: &UserEvent) {
+        match event {
+            UserEvent::Created(_event) => {
+                self.state.exists = true;
+            }
+
+            UserEvent::Deleted(_event) => {
+                self.state.exists = false;
+            }
+
+            UserEvent::Enabled(_event) => {
+                println!("--> UserEvent::Enabled");
+            }
+
+            UserEvent::Disabled(_event) => {
+                println!("--> UserEvent::Disabled");
+            }
+        }
     }
 }

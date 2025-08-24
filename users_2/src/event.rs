@@ -50,4 +50,13 @@ impl UserEvent {
             UserEvent::Disabled(e) => e.event_id,
         }
     }
+
+    pub fn get_aggregate_id(&self) -> uuid::Uuid {
+        match self {
+            UserEvent::Created(e) => e.aggregate_id,
+            UserEvent::Deleted(e) => e.aggregate_id,
+            UserEvent::Enabled(e) => e.aggregate_id,
+            UserEvent::Disabled(e) => e.aggregate_id,
+        }
+    }
 }

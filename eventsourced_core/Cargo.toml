@@ -4,4 +4,6 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+futures-util = { workspace = true }
+futures-core = { workspace = true }
 async-trait = { workspace = true }
