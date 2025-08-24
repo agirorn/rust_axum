@@ -1,5 +1,5 @@
 // use crate::error::Error;
-use crate::error::Result;
+use crate::error::{Error, Result};
 use crate::event::UserEvent;
 use crate::state::UserState;
 use async_trait::async_trait;
@@ -34,9 +34,9 @@ impl UserEventStore {
 impl EventStore for UserEventStore {
     type Event = UserEvent;
     type State = UserState;
-    type Error = crate::error::Error;
+    type Error = Error;
 
-    async fn save(&mut self, events: &mut Vec<UserEvent>, state: &UserState) -> Result<()> {
+    async fn save(&mut self, events: &mut Vec<Self::Event>, state: &Self::State) -> Result<()> {
         self.events.append(events);
         let state = state.clone();
         self.states.insert(state.aggregate_id, state);

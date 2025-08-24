@@ -4,7 +4,7 @@ use crate::event::{self, UserEvent};
 use crate::state::UserState;
 // use crate::store::UserEventStore;
 use async_trait::async_trait;
-use eventsourced_core::{Aggregate, EventStore};
+use eventsourced_core::{Aggregate, EventStore, EventStoreFor};
 use uuid::Uuid;
 
 #[derive(Default, Debug)]
@@ -28,7 +28,7 @@ impl Aggregate for User {
         cmd: Self::Command,
     ) -> std::result::Result<(), Self::Error>
     where
-        ES: EventStore<Event = Self::Event, State = Self::State, Error = Self::Error>,
+        ES: EventStoreFor<Self>,
     {
         let mut aggregate = User::load_from(event_store, cmd.aggregate_id()).await?;
         aggregate.handle_command(cmd).await?;
@@ -60,7 +60,7 @@ impl Aggregate for User {
         aggregate_id: Self::AggregateId,
     ) -> Self::LoadResult
     where
-        ES: EventStore<Event = Self::Event, State = Self::State>,
+        ES: EventStoreFor<Self>,
     {
         let user = User::new(aggregate_id);
         // let stream = event_store.stream(aggregate_id).await;
@@ -72,7 +72,7 @@ impl Aggregate for User {
 
     async fn save_to<ES>(&mut self, _event_store: &mut ES) -> Self::Result
     where
-        ES: EventStore<Event = Self::Event, State = Self::State>,
+        ES: EventStoreFor<Self>,
     {
         // event_store.write(self.get_uncommitted_events().await?);
         Ok(())

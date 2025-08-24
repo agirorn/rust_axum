@@ -15,7 +15,7 @@ impl EventStore for UserEventStore {
     type State = UserState;
     type Error = crate::error::Error;
 
-    async fn save(&mut self, _events: &mut Vec<UserEvent>, _state: &UserState) -> Result<()> {
+    async fn save(&mut self, _events: &mut Vec<Self::Event>, _state: &Self::State) -> Result<()> {
         unimplemented!("EventStore.save is not implemented for EventStore");
     }
 }
