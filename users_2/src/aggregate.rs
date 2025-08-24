@@ -5,7 +5,6 @@ use crate::state::UserState;
 use crate::store::UserEventStore;
 use async_trait::async_trait;
 use eventsourced_core::{Aggregate, EventStore};
-use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 #[derive(Default, Debug)]
@@ -26,7 +25,7 @@ impl Aggregate for User {
 
     async fn execute(event_store: &mut Self::Store, cmd: Self::Command) -> Self::Result {
         let mut aggregate = User::load_from(event_store, cmd.aggregate_id()).await?;
-        let result = aggregate.handle_command(cmd).await?;
+        aggregate.handle_command(cmd).await?;
         event_store
             .save(&mut aggregate.get_uncommitted_events(), &aggregate.state)
             .await?;
@@ -37,13 +36,13 @@ impl Aggregate for User {
         match cmd {
             UserCommand::Create(cmd) => self.handle_create(cmd).await?,
             UserCommand::Delete(cmd) => self.handle_delete(cmd).await?,
-            UserCommand::Enable(cmd) => {
+            UserCommand::Enable(_cmd) => {
                 unimplemented!("UserCommand::Delete");
             }
-            UserCommand::Disable(cmd) => {
+            UserCommand::Disable(_cmd) => {
                 unimplemented!("UserCommand::Delete");
             }
-            UserCommand::SetPassword(cmd) => {
+            UserCommand::SetPassword(_cmd) => {
                 unimplemented!("UserCommand::Delete");
             }
         }
@@ -51,7 +50,7 @@ impl Aggregate for User {
     }
 
     async fn load_from(
-        event_store: &mut Self::Store,
+        _event_store: &mut Self::Store,
         aggregate_id: Self::AggregateId,
     ) -> Self::LoadResult {
         let user = User::new(aggregate_id);
@@ -61,7 +60,7 @@ impl Aggregate for User {
         // }
         Ok(user)
     }
-    async fn save_to(&mut self, event_store: &mut Self::Store) -> Self::Result {
+    async fn save_to(&mut self, _event_store: &mut Self::Store) -> Self::Result {
         // event_store.write(self.get_uncommitted_events().await?);
         Ok(())
     }
@@ -85,7 +84,7 @@ impl User {
         }
     }
 
-    async fn handle_create(&mut self, cmd: command::Create) -> Result<()> {
+    async fn handle_create(&mut self, _cmd: command::Create) -> Result<()> {
         self.apply(
             UserEvent::Created(event::Created {
                 aggregate_id: self.state.aggregate_id,
@@ -98,7 +97,7 @@ impl User {
         Ok(())
     }
 
-    async fn handle_delete(&mut self, cmd: command::Delete) -> Result<()> {
+    async fn handle_delete(&mut self, _cmd: command::Delete) -> Result<()> {
         self.apply(
             UserEvent::Deleted(event::Deleted {
                 aggregate_id: self.state.aggregate_id,

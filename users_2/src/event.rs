@@ -41,6 +41,7 @@ pub struct NewPassword {
 }
 
 impl UserEvent {
+    #[cfg(test)]
     pub fn get_event_id(&self) -> uuid::Uuid {
         match self {
             UserEvent::Created(e) => e.event_id,

@@ -2,7 +2,7 @@ use crate::error::Result;
 use crate::event::UserEvent;
 use crate::state::UserState;
 use async_trait::async_trait;
-use eventsourced_core::{Aggregate, EventStore};
+use eventsourced_core::EventStore;
 use uuid::Uuid;
 
 #[derive(Default, Debug)]
@@ -12,17 +12,22 @@ pub struct UserEventStore {
 }
 
 impl UserEventStore {
+    #[cfg(test)]
     pub fn get_events(&self) -> Vec<UserEvent> {
         self.events.clone()
     }
 
+    #[cfg(test)]
     pub fn event_count(&self) -> usize {
         self.events.len()
     }
 
+    #[cfg(test)]
     pub fn get_event(&self, index: usize) -> Option<&UserEvent> {
         self.events.get(index)
     }
+
+    #[cfg(test)]
     pub fn get_state_for(&self, aggregate_id: &Uuid) -> &UserState {
         self.states.get(aggregate_id).unwrap()
     }

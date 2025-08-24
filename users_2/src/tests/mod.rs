@@ -2,15 +2,10 @@ use crate::aggregate::User;
 use crate::command::{self, UserCommand};
 use crate::error::Result;
 use crate::event::{self, UserEvent};
-use crate::result::UserResult;
 use crate::state::UserState;
 use crate::store::UserEventStore;
-use async_trait::async_trait;
-use eventsourced_core::{Aggregate, EventStore};
+use eventsourced_core::Aggregate;
 use pretty_assertions::assert_eq;
-use serde::{Deserialize, Serialize};
-use std::{fmt::Debug, sync::Arc};
-use tokio::sync::Mutex;
 use uuid::Uuid;
 
 const USER_ID_AGGREGATE_ID: Uuid = uuid::uuid!("aba80c9b-21c6-4fee-b046-7b069f8d9120");
