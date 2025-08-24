@@ -4,7 +4,7 @@ use crate::event::{self, UserEvent};
 use crate::state::UserState;
 // use crate::store::UserEventStore;
 use async_trait::async_trait;
-use eventsourced_core::{Aggregate, EventStore, EventStoreFor};
+use eventsourced_core::{Aggregate, EventStoreFor};
 use uuid::Uuid;
 
 #[derive(Default, Debug)]
