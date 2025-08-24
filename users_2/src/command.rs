@@ -1,3 +1,4 @@
+use eventsourced_core::Command;
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -36,10 +37,8 @@ pub struct SetPassword {
     pub password: String,
 }
 
-// This should probalaby be
-// impl Command for UserCommand
-impl UserCommand {
-    pub fn aggregate_id(&self) -> uuid::Uuid {
+impl Command<uuid::Uuid> for UserCommand {
+    fn aggregate_id(&self) -> uuid::Uuid {
         match self {
             UserCommand::Create(cmd) => cmd.aggregate_id,
             UserCommand::Delete(cmd) => cmd.aggregate_id,

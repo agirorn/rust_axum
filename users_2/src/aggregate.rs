@@ -2,11 +2,9 @@ use crate::command::{self, UserCommand};
 use crate::error::{Error, Result};
 use crate::event::{self, UserEvent};
 use crate::state::UserState;
-// use crate::store::UserEventStore;
 use async_trait::async_trait;
-use eventsourced_core::{Aggregate, EventStoreFor};
-// use futures_util::StreamExt;
-use futures_util::StreamExt;
+// use eventsourced_core::{Aggregate, EventStoreFor};
+use eventsourced_core::Aggregate;
 use uuid::Uuid;
 
 #[derive(Default, Debug)]
@@ -18,29 +16,13 @@ pub struct User {
 #[async_trait]
 impl Aggregate for User {
     type Command = UserCommand;
-    type Result = Result<()>;
+    type CommandResult = ();
     type Error = Error;
-    type LoadResult = Result<Self>;
     type Event = UserEvent;
     type State = UserState;
     type AggregateId = Uuid;
 
-    async fn execute<ES>(
-        event_store: &mut ES,
-        cmd: Self::Command,
-    ) -> std::result::Result<(), Self::Error>
-    where
-        ES: EventStoreFor<Self>,
-    {
-        let mut aggregate = User::load_from(event_store, cmd.aggregate_id()).await?;
-        aggregate.handle_command(cmd).await?;
-        event_store
-            .save(&mut aggregate.get_uncommitted_events(), &aggregate.state)
-            .await?;
-        Ok(())
-    }
-
-    async fn handle_command(&mut self, cmd: Self::Command) -> Self::Result {
+    async fn handle(&mut self, cmd: Self::Command) -> Result<Self::CommandResult> {
         match cmd {
             UserCommand::Create(cmd) => self.handle_create(cmd).await?,
             UserCommand::Delete(cmd) => self.handle_delete(cmd).await?,
@@ -57,30 +39,8 @@ impl Aggregate for User {
         Ok(())
     }
 
-    async fn load_from<ES>(event_store: &ES, aggregate_id: Self::AggregateId) -> Self::LoadResult
-    where
-        ES: EventStoreFor<Self>,
-    {
-        let mut user = User::new(aggregate_id);
-        let mut events = event_store.event_stream(aggregate_id);
-        while let Some(event) = events.next().await {
-            let event = event?;
-            user.apply(event, false).await?;
-        }
-        Ok(user)
-    }
-
-    async fn save_to<ES>(&mut self, _event_store: &mut ES) -> Self::Result
-    where
-        ES: EventStoreFor<Self>,
-    {
-        // event_store.write(self.get_uncommitted_events().await?);
-        Ok(())
-    }
-
-    // This function should not be async
-    async fn apply(&mut self, event: UserEvent, save: bool) -> Self::Result {
-        self.proccess_event(&event);
+    fn apply(&mut self, event: UserEvent, save: bool) -> Result<()> {
+        self.apply_event(&event);
         if save {
             self.events.push(event);
         }
@@ -90,19 +50,23 @@ impl Aggregate for User {
     fn get_uncommitted_events(&mut self) -> Vec<Self::Event> {
         self.events.clone()
     }
-}
 
-impl User {
-    pub fn new(aggregate_id: Uuid) -> Self {
+    fn get_state(&self) -> &Self::State {
+        &self.state
+    }
+
+    fn new(aggregate_id: &Uuid) -> Self {
         Self {
             events: vec![],
             state: UserState {
-                aggregate_id,
+                aggregate_id: *aggregate_id,
                 exists: false,
             },
         }
     }
+}
 
+impl User {
     async fn handle_create(&mut self, _cmd: command::Create) -> Result<()> {
         self.apply(
             UserEvent::Created(event::Created {
@@ -111,8 +75,7 @@ impl User {
                 username: "username".to_string(),
             }),
             true,
-        )
-        .await?;
+        )?;
         Ok(())
     }
 
@@ -123,12 +86,11 @@ impl User {
                 event_id: Uuid::new_v4(),
             }),
             true,
-        )
-        .await?;
+        )?;
         Ok(())
     }
 
-    fn proccess_event(&mut self, event: &UserEvent) {
+    fn apply_event(&mut self, event: &UserEvent) {
         match event {
             UserEvent::Created(_event) => {
                 self.state.exists = true;

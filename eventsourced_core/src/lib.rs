@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use futures_core::Stream;
+use futures_util::StreamExt;
 use std::fmt::Debug;
 use std::pin::Pin;
 
@@ -8,31 +9,64 @@ use std::pin::Pin;
 /// for the aggregate
 #[async_trait]
 pub trait Aggregate: Sized {
-    type Command;
-    type Event;
+    type Command: Command<Self::AggregateId> + Send + 'static;
+    type CommandResult: Send + 'static;
+    type Event: Send + 'static;
     type Error;
-    type Result;
-    type LoadResult;
     type State;
-    type AggregateId;
+    type AggregateId: Send + 'static;
 
-    async fn execute<ES>(event_store: &mut ES, cmd: Self::Command) -> Result<(), Self::Error>
+    async fn execute<ES>(
+        event_store: &mut ES,
+        cmd: Self::Command,
+    ) -> Result<Self::CommandResult, Self::Error>
     where
-        ES: EventStoreFor<Self>;
+        ES: EventStoreFor<Self>,
+    {
+        // Default implementation for the aggregate execute so that all aggregates don't have to,
+        let mut aggregate = Self::load_from(event_store, cmd.aggregate_id()).await?;
+        let result = aggregate.handle(cmd).await?;
+        event_store
+            .save(
+                &mut aggregate.get_uncommitted_events(),
+                aggregate.get_state(),
+            )
+            .await?;
+        Ok(result)
+    }
 
-    async fn handle_command(&mut self, cmd: Self::Command) -> Self::Result;
+    async fn handle(&mut self, cmd: Self::Command) -> Result<Self::CommandResult, Self::Error>;
 
-    async fn load_from<ES>(event_store: &ES, aggregate_id: Self::AggregateId) -> Self::LoadResult
+    async fn load_from<ES>(
+        event_store: &ES,
+        aggregate_id: Self::AggregateId,
+    ) -> Result<Self, Self::Error>
     where
-        ES: EventStoreFor<Self>;
+        ES: EventStoreFor<Self>,
+    {
+        // Default implementation for loading the aggregate from the EventStore
+        let mut user = Self::new(&aggregate_id);
+        let mut events = event_store.event_stream(aggregate_id);
+        while let Some(event) = events.next().await {
+            let event = event?;
+            user.apply(event, false)?;
+        }
+        Ok(user)
+    }
 
-    async fn save_to<ES>(&mut self, event_store: &mut ES) -> Self::Result
-    where
-        ES: EventStoreFor<Self>;
-
-    async fn apply(&mut self, event: Self::Event, save: bool) -> Self::Result;
-
+    /// Applies each event on to the aggregate.
+    ///
+    /// This function is only applying facts on to the aggregate and should need other systems to
+    /// get to the connect state and should should not call out to other systmes to get any
+    /// information. All the facts should be in the events that are applied.
+    fn apply(&mut self, event: Self::Event, save: bool) -> Result<(), Self::Error>;
     fn get_uncommitted_events(&mut self) -> Vec<Self::Event>;
+    fn get_state(&self) -> &Self::State;
+    fn new(aggregate_id: &Self::AggregateId) -> Self;
+}
+
+pub trait Command<Id> {
+    fn aggregate_id(&self) -> Id; // or &Id if you prefer borrowing
 }
 
 pub type BoxEventStream<E, Err> = Pin<Box<dyn Stream<Item = Result<E, Err>> + Send + 'static>>;
