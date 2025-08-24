@@ -1,9 +1,9 @@
-mod aggregate;
-mod command;
-mod error;
-mod event;
-mod result;
-mod state;
-mod store;
+pub mod aggregate;
+pub mod command;
+pub mod error;
+pub mod event;
+pub mod result;
+pub mod state;
+pub mod store;
 #[cfg(test)]
 mod tests;

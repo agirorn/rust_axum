@@ -1,9 +1,10 @@
+mod store;
 use crate::aggregate::User;
 use crate::command::{self, UserCommand};
 use crate::error::Result;
 use crate::event::{self, UserEvent};
 use crate::state::UserState;
-use crate::store::UserEventStore;
+use crate::tests::store::UserEventStore;
 use eventsourced_core::Aggregate;
 use pretty_assertions::assert_eq;
 use uuid::Uuid;

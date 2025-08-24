@@ -3,46 +3,19 @@ use crate::event::UserEvent;
 use crate::state::UserState;
 use async_trait::async_trait;
 use eventsourced_core::EventStore;
-use uuid::Uuid;
 
 #[derive(Default, Debug)]
-pub struct UserEventStore {
-    events: Vec<UserEvent>,
-    states: std::collections::HashMap<Uuid, UserState>,
-}
+pub struct UserEventStore {}
 
-impl UserEventStore {
-    #[cfg(test)]
-    pub fn get_events(&self) -> Vec<UserEvent> {
-        self.events.clone()
-    }
-
-    #[cfg(test)]
-    pub fn event_count(&self) -> usize {
-        self.events.len()
-    }
-
-    #[cfg(test)]
-    pub fn get_event(&self, index: usize) -> Option<&UserEvent> {
-        self.events.get(index)
-    }
-
-    #[cfg(test)]
-    pub fn get_state_for(&self, aggregate_id: &Uuid) -> &UserState {
-        self.states.get(aggregate_id).unwrap()
-    }
-}
+impl UserEventStore {}
 
 #[async_trait]
 impl EventStore for UserEventStore {
     type Event = UserEvent;
     type State = UserState;
-    type Result = Result<()>;
+    type Error = crate::error::Error;
 
-    async fn save(&mut self, events: &mut Vec<UserEvent>, state: &UserState) -> Self::Result {
-        self.events.append(events);
-        let state = state.clone();
-        self.states.insert(state.aggregate_id, state);
-        Ok(())
+    async fn save(&mut self, _events: &mut Vec<UserEvent>, _state: &UserState) -> Result<()> {
+        unimplemented!("EventStore.save is not implemented for EventStore");
     }
 }

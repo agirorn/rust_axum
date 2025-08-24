@@ -1,8 +1,8 @@
 use crate::command::{self, UserCommand};
-use crate::error::Result;
+use crate::error::{Error, Result};
 use crate::event::{self, UserEvent};
 use crate::state::UserState;
-use crate::store::UserEventStore;
+// use crate::store::UserEventStore;
 use async_trait::async_trait;
 use eventsourced_core::{Aggregate, EventStore};
 use uuid::Uuid;
@@ -17,13 +17,19 @@ pub struct User {
 impl Aggregate for User {
     type Command = UserCommand;
     type Result = Result<()>;
+    type Error = Error;
     type LoadResult = Result<Self>;
     type Event = UserEvent;
     type State = UserState;
-    type Store = UserEventStore;
     type AggregateId = Uuid;
 
-    async fn execute(event_store: &mut Self::Store, cmd: Self::Command) -> Self::Result {
+    async fn execute<ES>(
+        event_store: &mut ES,
+        cmd: Self::Command,
+    ) -> std::result::Result<(), Self::Error>
+    where
+        ES: EventStore<Event = Self::Event, State = Self::State, Error = Self::Error>,
+    {
         let mut aggregate = User::load_from(event_store, cmd.aggregate_id()).await?;
         aggregate.handle_command(cmd).await?;
         event_store
@@ -49,10 +55,13 @@ impl Aggregate for User {
         Ok(())
     }
 
-    async fn load_from(
-        _event_store: &mut Self::Store,
+    async fn load_from<ES>(
+        _event_store: &mut ES,
         aggregate_id: Self::AggregateId,
-    ) -> Self::LoadResult {
+    ) -> Self::LoadResult
+    where
+        ES: EventStore<Event = Self::Event, State = Self::State>,
+    {
         let user = User::new(aggregate_id);
         // let stream = event_store.stream(aggregate_id).await;
         // while let Some(event) = stream.next().await {
@@ -60,10 +69,15 @@ impl Aggregate for User {
         // }
         Ok(user)
     }
-    async fn save_to(&mut self, _event_store: &mut Self::Store) -> Self::Result {
+
+    async fn save_to<ES>(&mut self, _event_store: &mut ES) -> Self::Result
+    where
+        ES: EventStore<Event = Self::Event, State = Self::State>,
+    {
         // event_store.write(self.get_uncommitted_events().await?);
         Ok(())
     }
+
     async fn apply(&mut self, event: UserEvent, save: bool) -> Self::Result {
         if save {
             self.events.push(event);
