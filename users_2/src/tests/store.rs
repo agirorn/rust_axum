@@ -25,6 +25,10 @@ impl TestUserEventStore {
         self.events.get(index)
     }
 
+    pub fn get_last_event(&self) -> Option<&UserEvent> {
+        self.events.last()
+    }
+
     pub fn get_state_for(&self, aggregate_id: &Uuid) -> UserState {
         self.states.get(aggregate_id).unwrap().clone()
     }

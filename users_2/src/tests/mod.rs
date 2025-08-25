@@ -43,6 +43,7 @@ async fn create_user() {
         username: "username".to_string(),
         has_password: false,
         exists: true,
+        enabled: true,
     };
     let aggregate = User::load(&store, USER_ID_AGGREGATE_ID).await.unwrap();
     assert_eq!(expected_state, aggregate.state);
@@ -75,6 +76,7 @@ async fn delete_user() {
         username: "username".to_string(),
         has_password: false,
         exists: false,
+        enabled: true,
     };
     let aggregate = User::load(&store, USER_ID_AGGREGATE_ID).await.unwrap();
     assert_eq!(expected_state, aggregate.state);
@@ -114,8 +116,67 @@ async fn set_password() {
         username: "username".to_string(),
         has_password: true,
         exists: true,
+        enabled: true,
     };
     let aggregate = User::load(&store, USER_ID_AGGREGATE_ID).await.unwrap();
     assert_eq!(expected_state, aggregate.state);
+    assert_eq!(expected_state, store.get_state_for(&USER_ID_AGGREGATE_ID));
+}
+
+#[tokio::test]
+async fn disable_then_enable_user() {
+    let mut store = Users::default();
+    creat_user(&mut store).await.unwrap();
+    User::execute(
+        &mut store,
+        UserCommand::Disable(command::Disable {
+            aggregate_id: USER_ID_AGGREGATE_ID,
+        }),
+    )
+    .await
+    .unwrap();
+    assert_eq!(store.event_count(), 2);
+    let event = store.get_last_event().unwrap();
+    assert_eq!(
+        event,
+        &UserEvent::Disabled(event::Disabled {
+            aggregate_id: USER_ID_AGGREGATE_ID,
+            event_id: event.get_event_id(),
+        })
+    );
+    let expected_state = UserState {
+        aggregate_id: USER_ID_AGGREGATE_ID,
+        username: "username".to_string(),
+        has_password: false,
+        exists: true,
+        enabled: false,
+    };
+    assert_eq!(expected_state, store.get_state_for(&USER_ID_AGGREGATE_ID));
+
+    User::execute(
+        &mut store,
+        UserCommand::Enable(command::Enable {
+            aggregate_id: USER_ID_AGGREGATE_ID,
+        }),
+    )
+    .await
+    .unwrap();
+    assert_eq!(store.event_count(), 3);
+    let event = store.get_last_event().unwrap();
+    assert_eq!(
+        event,
+        &UserEvent::Enabled(event::Enabled {
+            aggregate_id: USER_ID_AGGREGATE_ID,
+            event_id: event.get_event_id(),
+        })
+    );
+    let expected_state = UserState {
+        aggregate_id: USER_ID_AGGREGATE_ID,
+        username: "username".to_string(),
+        has_password: false,
+        exists: true,
+        enabled: true,
+    };
+
     assert_eq!(expected_state, store.get_state_for(&USER_ID_AGGREGATE_ID));
 }

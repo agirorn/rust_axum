@@ -7,4 +7,5 @@ pub struct UserState {
     pub username: String,
     pub has_password: bool,
     pub exists: bool,
+    pub enabled: bool,
 }

@@ -22,15 +22,25 @@ impl Aggregate for User {
     type State = UserState;
     type AggregateId = Uuid;
 
-    async fn handle(&mut self, cmd: Self::Command) -> Result<Self::CommandResult> {
-        match cmd {
-            UserCommand::Create(cmd) => self.handle_create(cmd).await?,
-            UserCommand::Delete(cmd) => self.handle_delete(cmd).await?,
-            UserCommand::Enable(cmd) => self.handle_enable(cmd).await?,
-            UserCommand::Disable(cmd) => self.handle_disable(cmd).await?,
-            UserCommand::SetPassword(cmd) => self.handle_set_password(cmd).await?,
+    fn new(aggregate_id: &Uuid) -> Self {
+        Self {
+            events: vec![],
+            state: UserState {
+                aggregate_id: *aggregate_id,
+                username: "".to_string(),
+                has_password: false,
+                exists: false,
+                enabled: true,
+            },
         }
-        Ok(())
+    }
+
+    fn get_state(&self) -> &Self::State {
+        &self.state
+    }
+
+    fn get_uncommitted_events(&mut self) -> Vec<Self::Event> {
+        self.events.clone()
     }
 
     fn apply(&mut self, event: UserEvent, save: bool) -> Result<()> {
@@ -41,24 +51,15 @@ impl Aggregate for User {
         Ok(())
     }
 
-    fn get_uncommitted_events(&mut self) -> Vec<Self::Event> {
-        self.events.clone()
-    }
-
-    fn get_state(&self) -> &Self::State {
-        &self.state
-    }
-
-    fn new(aggregate_id: &Uuid) -> Self {
-        Self {
-            events: vec![],
-            state: UserState {
-                aggregate_id: *aggregate_id,
-                username: "".to_string(),
-                has_password: false,
-                exists: false,
-            },
+    async fn handle(&mut self, cmd: Self::Command) -> Result<Self::CommandResult> {
+        match cmd {
+            UserCommand::Create(cmd) => self.handle_create(cmd).await?,
+            UserCommand::Delete(cmd) => self.handle_delete(cmd).await?,
+            UserCommand::Enable(cmd) => self.handle_enable(cmd).await?,
+            UserCommand::Disable(cmd) => self.handle_disable(cmd).await?,
+            UserCommand::SetPassword(cmd) => self.handle_set_password(cmd).await?,
         }
+        Ok(())
     }
 }
 
@@ -87,11 +88,25 @@ impl User {
     }
 
     async fn handle_enable(&mut self, _cmd: command::Enable) -> Result<()> {
-        unimplemented!("UserCommand::Delete");
+        self.apply(
+            UserEvent::Enabled(event::Enabled {
+                aggregate_id: self.state.aggregate_id,
+                event_id: Uuid::new_v4(),
+            }),
+            true,
+        )?;
+        Ok(())
     }
 
     async fn handle_disable(&mut self, _cmd: command::Disable) -> Result<()> {
-        unimplemented!("UserCommand::Delete");
+        self.apply(
+            UserEvent::Disabled(event::Disabled {
+                aggregate_id: self.state.aggregate_id,
+                event_id: Uuid::new_v4(),
+            }),
+            true,
+        )?;
+        Ok(())
     }
 
     async fn handle_set_password(&mut self, cmd: command::SetPassword) -> Result<()> {
@@ -105,7 +120,9 @@ impl User {
         )?;
         Ok(())
     }
+}
 
+impl User {
     fn apply_event(&mut self, event: &UserEvent) {
         match event {
             UserEvent::Created(event) => {
@@ -118,11 +135,11 @@ impl User {
             }
 
             UserEvent::Enabled(_event) => {
-                println!("--> UserEvent::Enabled");
+                self.state.enabled = true;
             }
 
             UserEvent::Disabled(_event) => {
-                println!("--> UserEvent::Disabled");
+                self.state.enabled = false;
             }
 
             UserEvent::NewPassword(_event) => {
