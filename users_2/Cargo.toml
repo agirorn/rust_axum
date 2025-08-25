@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 bcrypt = { workspace = true }
+chrono = { workspace = true }
 futures-util = { workspace = true }
 futures-core = { workspace = true }
 pgmt = { workspace = true }

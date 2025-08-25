@@ -8,4 +8,5 @@ pub struct UserState {
     pub has_password: bool,
     pub exists: bool,
     pub enabled: bool,
+    pub password_hash: Option<String>,
 }

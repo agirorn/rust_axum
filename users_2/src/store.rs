@@ -1,5 +1,5 @@
 use crate::error::Result;
-use crate::event::UserEvent;
+use crate::event::{Envelope, UserEvent};
 use crate::state::UserState;
 use async_trait::async_trait;
 use eventsourced_core::{BoxEventStream, EventStore};
@@ -13,7 +13,7 @@ impl UserEventStore {}
 
 #[async_trait]
 impl EventStore for UserEventStore {
-    type Event = UserEvent;
+    type Event = Envelope;
     type State = UserState;
     type Error = crate::error::Error;
     type AggregateId = Uuid;

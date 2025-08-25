@@ -1,6 +1,6 @@
 use crate::command::{self, UserCommand};
 use crate::error::{Error, Result};
-use crate::event::{self, UserEvent};
+use crate::event::{self, Envelope, UserEvent};
 use crate::state::UserState;
 use async_trait::async_trait;
 // use eventsourced_core::{Aggregate, EventStoreFor};
@@ -9,7 +9,7 @@ use uuid::Uuid;
 
 #[derive(Default, Debug)]
 pub struct User {
-    events: Vec<UserEvent>,
+    events: Vec<Envelope>,
     pub state: UserState,
 }
 
@@ -18,7 +18,7 @@ impl Aggregate for User {
     type Command = UserCommand;
     type CommandResult = ();
     type Error = Error;
-    type Event = UserEvent;
+    type Event = Envelope;
     type State = UserState;
     type AggregateId = Uuid;
 
@@ -31,6 +31,7 @@ impl Aggregate for User {
                 has_password: false,
                 exists: false,
                 enabled: true,
+                password_hash: None,
             },
         }
     }
@@ -43,7 +44,7 @@ impl Aggregate for User {
         self.events.clone()
     }
 
-    fn apply(&mut self, event: UserEvent, save: bool) -> Result<()> {
+    fn apply(&mut self, event: Envelope, save: bool) -> Result<()> {
         self.apply_event(&event);
         if save {
             self.events.push(event);
@@ -66,11 +67,13 @@ impl Aggregate for User {
 impl User {
     async fn handle_create(&mut self, _cmd: command::Create) -> Result<()> {
         self.apply(
-            UserEvent::Created(event::Created {
-                aggregate_id: self.state.aggregate_id,
-                event_id: Uuid::new_v4(),
-                username: "username".to_string(),
-            }),
+            Envelope::new(
+                self.state.aggregate_id,
+                event::Created {
+                    username: "username".to_string(),
+                }
+                .into(),
+            ),
             true,
         )?;
         Ok(())
@@ -78,10 +81,7 @@ impl User {
 
     async fn handle_delete(&mut self, _cmd: command::Delete) -> Result<()> {
         self.apply(
-            UserEvent::Deleted(event::Deleted {
-                aggregate_id: self.state.aggregate_id,
-                event_id: Uuid::new_v4(),
-            }),
+            Envelope::new(self.state.aggregate_id, UserEvent::Deleted),
             true,
         )?;
         Ok(())
@@ -89,10 +89,7 @@ impl User {
 
     async fn handle_enable(&mut self, _cmd: command::Enable) -> Result<()> {
         self.apply(
-            UserEvent::Enabled(event::Enabled {
-                aggregate_id: self.state.aggregate_id,
-                event_id: Uuid::new_v4(),
-            }),
+            Envelope::new(self.state.aggregate_id, UserEvent::Enabled),
             true,
         )?;
         Ok(())
@@ -100,10 +97,7 @@ impl User {
 
     async fn handle_disable(&mut self, _cmd: command::Disable) -> Result<()> {
         self.apply(
-            UserEvent::Disabled(event::Disabled {
-                aggregate_id: self.state.aggregate_id,
-                event_id: Uuid::new_v4(),
-            }),
+            Envelope::new(self.state.aggregate_id, UserEvent::Disabled),
             true,
         )?;
         Ok(())
@@ -111,11 +105,13 @@ impl User {
 
     async fn handle_set_password(&mut self, cmd: command::SetPassword) -> Result<()> {
         self.apply(
-            UserEvent::NewPassword(event::NewPassword {
-                aggregate_id: self.state.aggregate_id,
-                event_id: Uuid::new_v4(),
-                password_hash: bcrypt::hash(cmd.password, bcrypt::DEFAULT_COST)?,
-            }),
+            Envelope::new(
+                self.state.aggregate_id,
+                event::NewPassword {
+                    password_hash: bcrypt::hash(cmd.password, bcrypt::DEFAULT_COST)?,
+                }
+                .into(),
+            ),
             true,
         )?;
         Ok(())
@@ -123,27 +119,28 @@ impl User {
 }
 
 impl User {
-    fn apply_event(&mut self, event: &UserEvent) {
-        match event {
+    fn apply_event(&mut self, event: &Envelope) {
+        match event.data.clone() {
             UserEvent::Created(event) => {
                 self.state.exists = true;
                 self.state.username = event.username.clone();
             }
 
-            UserEvent::Deleted(_event) => {
+            UserEvent::Deleted => {
                 self.state.exists = false;
             }
 
-            UserEvent::Enabled(_event) => {
+            UserEvent::Enabled => {
                 self.state.enabled = true;
             }
 
-            UserEvent::Disabled(_event) => {
+            UserEvent::Disabled => {
                 self.state.enabled = false;
             }
 
-            UserEvent::NewPassword(_event) => {
+            UserEvent::NewPassword(event) => {
                 self.state.has_password = true;
+                self.state.password_hash = Some(event.password_hash);
             }
         }
     }

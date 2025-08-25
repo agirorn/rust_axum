@@ -1,66 +1,73 @@
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
+
+use crate::command::SetPassword;
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
 pub enum UserEvent {
     Created(Created),
-    Deleted(Deleted),
-    Enabled(Enabled),
-    Disabled(Disabled),
+    Deleted,
+    Enabled,
+    Disabled,
     NewPassword(NewPassword),
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
 pub struct Created {
-    pub aggregate_id: uuid::Uuid,
-    pub event_id: uuid::Uuid,
     pub username: String,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
-pub struct Deleted {
-    pub aggregate_id: uuid::Uuid,
-    pub event_id: uuid::Uuid,
+impl From<Created> for UserEvent {
+    fn from(value: Created) -> Self {
+        UserEvent::Created(value)
+    }
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
-pub struct Enabled {
-    pub aggregate_id: uuid::Uuid,
-    pub event_id: uuid::Uuid,
-}
+pub struct Deleted {}
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
-pub struct Disabled {
-    pub aggregate_id: uuid::Uuid,
-    pub event_id: uuid::Uuid,
-}
+pub struct Enabled {}
+
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
+pub struct Disabled {}
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
 pub struct NewPassword {
-    pub aggregate_id: uuid::Uuid,
-    pub event_id: uuid::Uuid,
     /// A bcrypt hased password
     pub password_hash: String,
 }
 
-impl UserEvent {
-    #[cfg(test)]
-    pub fn get_event_id(&self) -> uuid::Uuid {
-        match self {
-            UserEvent::Created(e) => e.event_id,
-            UserEvent::Deleted(e) => e.event_id,
-            UserEvent::Enabled(e) => e.event_id,
-            UserEvent::Disabled(e) => e.event_id,
-            UserEvent::NewPassword(e) => e.event_id,
+impl From<NewPassword> for UserEvent {
+    fn from(value: NewPassword) -> Self {
+        UserEvent::NewPassword(value)
+    }
+}
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+pub struct Envelope {
+    pub aggregate_id: uuid::Uuid,
+    pub event_id: uuid::Uuid,
+    pub timestamp: DateTime<Utc>,
+    pub data: UserEvent,
+}
+
+impl Envelope {
+    pub fn new(aggregate_id: Uuid, data: UserEvent) -> Self {
+        Self {
+            aggregate_id,
+            event_id: uuid::Uuid::new_v4(),
+            timestamp: chrono::Utc::now(),
+            data,
         }
     }
 
     pub fn get_aggregate_id(&self) -> uuid::Uuid {
-        match self {
-            UserEvent::Created(e) => e.aggregate_id,
-            UserEvent::Deleted(e) => e.aggregate_id,
-            UserEvent::Enabled(e) => e.aggregate_id,
-            UserEvent::Disabled(e) => e.aggregate_id,
-            UserEvent::NewPassword(e) => e.aggregate_id,
-        }
+        self.aggregate_id
+    }
+
+    pub fn get_event_id(&self) -> uuid::Uuid {
+        self.event_id
     }
 }

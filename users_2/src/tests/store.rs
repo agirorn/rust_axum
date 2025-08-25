@@ -1,5 +1,5 @@
 use crate::error::{Error, Result};
-use crate::event::UserEvent;
+use crate::event::{Envelope, UserEvent};
 use crate::state::UserState;
 use async_trait::async_trait;
 use eventsourced_core::{BoxEventStream, EventStore};
@@ -8,7 +8,7 @@ use uuid::Uuid;
 
 #[derive(Default, Debug)]
 pub struct TestUserEventStore {
-    events: Vec<UserEvent>,
+    events: Vec<Envelope>,
     states: std::collections::HashMap<Uuid, UserState>,
 }
 
@@ -21,11 +21,11 @@ impl TestUserEventStore {
         self.events.len()
     }
 
-    pub fn get_event(&self, index: usize) -> Option<&UserEvent> {
+    pub fn get_event(&self, index: usize) -> Option<&Envelope> {
         self.events.get(index)
     }
 
-    pub fn get_last_event(&self) -> Option<&UserEvent> {
+    pub fn get_last_event(&self) -> Option<&Envelope> {
         self.events.last()
     }
 
@@ -36,7 +36,7 @@ impl TestUserEventStore {
 
 #[async_trait]
 impl EventStore for TestUserEventStore {
-    type Event = UserEvent;
+    type Event = Envelope;
     type State = UserState;
     type Error = Error;
     type AggregateId = Uuid;

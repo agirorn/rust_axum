@@ -1976,6 +1976,7 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "bcrypt",
+ "chrono",
  "derive_more",
  "eventsourced_core",
  "futures-core",
