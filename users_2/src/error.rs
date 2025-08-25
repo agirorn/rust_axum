@@ -10,8 +10,8 @@ use std::env;
 pub enum Error {
     #[from]
     Message(String),
-    // #[from]
-    // TokioPostgresError(tokio_postgres::Error),
+    #[from]
+    BcryptError(bcrypt::BcryptError),
     // #[from]
     // PoolError(deadpool_postgres::PoolError),
 }

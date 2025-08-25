@@ -6,6 +6,7 @@ pub enum UserEvent {
     Deleted(Deleted),
     Enabled(Enabled),
     Disabled(Disabled),
+    NewPassword(NewPassword),
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
@@ -37,7 +38,8 @@ pub struct Disabled {
 pub struct NewPassword {
     pub aggregate_id: uuid::Uuid,
     pub event_id: uuid::Uuid,
-    pub password: String,
+    /// A bcrypt hased password
+    pub password_hash: String,
 }
 
 impl UserEvent {
@@ -48,6 +50,7 @@ impl UserEvent {
             UserEvent::Deleted(e) => e.event_id,
             UserEvent::Enabled(e) => e.event_id,
             UserEvent::Disabled(e) => e.event_id,
+            UserEvent::NewPassword(e) => e.event_id,
         }
     }
 
@@ -57,6 +60,7 @@ impl UserEvent {
             UserEvent::Deleted(e) => e.aggregate_id,
             UserEvent::Enabled(e) => e.aggregate_id,
             UserEvent::Disabled(e) => e.aggregate_id,
+            UserEvent::NewPassword(e) => e.aggregate_id,
         }
     }
 }

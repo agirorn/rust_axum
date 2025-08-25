@@ -30,3 +30,4 @@ pgmt_macros = { git = "http://github.com/agirorn/pgmt.git", rev = "36e7aff1406cd
 async-trait = "0.1.88"
 pretty_assertions = "1.4.1"
 uuid = { version = "1.17.0", features = ["v4", "serde"] }
+bcrypt = "0.17.1"

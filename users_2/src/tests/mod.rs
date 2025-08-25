@@ -40,6 +40,8 @@ async fn create_user() {
     );
     let expected_state = UserState {
         aggregate_id: USER_ID_AGGREGATE_ID,
+        username: "username".to_string(),
+        has_password: false,
         exists: true,
     };
     let aggregate = User::load(&store, USER_ID_AGGREGATE_ID).await.unwrap();
@@ -70,7 +72,48 @@ async fn delete_user() {
     );
     let expected_state = UserState {
         aggregate_id: USER_ID_AGGREGATE_ID,
+        username: "username".to_string(),
+        has_password: false,
         exists: false,
+    };
+    let aggregate = User::load(&store, USER_ID_AGGREGATE_ID).await.unwrap();
+    assert_eq!(expected_state, aggregate.state);
+    assert_eq!(expected_state, store.get_state_for(&USER_ID_AGGREGATE_ID));
+}
+
+#[tokio::test]
+async fn set_password() {
+    let mut store = Users::default();
+    creat_user(&mut store).await.unwrap();
+    User::execute(
+        &mut store,
+        UserCommand::SetPassword(command::SetPassword {
+            aggregate_id: USER_ID_AGGREGATE_ID,
+            password: "password".to_string(),
+        }),
+    )
+    .await
+    .unwrap();
+    assert_eq!(store.event_count(), 2);
+    let event = store.get_event(1).unwrap();
+    let mut password_hash = "".to_string();
+    if let UserEvent::NewPassword(event) = event.clone() {
+        password_hash = event.password_hash;
+    }
+    assert_eq!(
+        event,
+        &UserEvent::NewPassword(event::NewPassword {
+            aggregate_id: USER_ID_AGGREGATE_ID,
+            password_hash: password_hash.clone(),
+            event_id: event.get_event_id(),
+        })
+    );
+    assert!(bcrypt::verify("password", &password_hash).unwrap());
+    let expected_state = UserState {
+        aggregate_id: USER_ID_AGGREGATE_ID,
+        username: "username".to_string(),
+        has_password: true,
+        exists: true,
     };
     let aggregate = User::load(&store, USER_ID_AGGREGATE_ID).await.unwrap();
     assert_eq!(expected_state, aggregate.state);
