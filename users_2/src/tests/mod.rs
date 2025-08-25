@@ -5,6 +5,7 @@ use crate::error::Result;
 use crate::event::{self, Envelope, UserEvent};
 use crate::state::UserState;
 use crate::tests::store::TestUserEventStore as Users;
+use chrono::{DateTime, Duration, Utc};
 use eventsourced_core::{Aggregate, EventStoreFor};
 use pretty_assertions::assert_eq;
 use uuid::Uuid;
@@ -30,11 +31,8 @@ async fn create_user() {
     creat_user(&mut store).await.unwrap();
     assert_eq!(store.event_count(), 1);
     let event = store.get_event(0).unwrap();
-    // TODO: assert that the event.timestamp is close to now and in the past
-    // TODO: assert that the event.event_id is av4 UUID
-
-    assert_eq!(event.event_id, event.event_id);
-    assert_eq!(event.timestamp, event.timestamp);
+    assert_valid_event_id(event.event_id);
+    assert_valid_timestamp(event.timestamp);
     assert_eq!(event.aggregate_id, USER_ID_AGGREGATE_ID);
     assert_eq!(
         event.data,
@@ -172,4 +170,22 @@ async fn disable_then_enable_user() {
     };
 
     assert_eq!(expected_state, store.get_state_for(&USER_ID_AGGREGATE_ID));
+}
+
+fn assert_valid_timestamp(ts: DateTime<Utc>) {
+    let now = Utc::now();
+    //
+    // compute difference
+    let diff = now - ts;
+
+    // assert it's within some tolerance
+    assert!(diff < Duration::seconds(1), "timestamp too old: {diff:?}");
+    assert!(
+        diff > Duration::seconds(0),
+        "timestamp too far in future: {diff:?}"
+    );
+}
+
+fn assert_valid_event_id(id: Uuid) {
+    assert_eq!(id.get_version_num(), 4);
 }
