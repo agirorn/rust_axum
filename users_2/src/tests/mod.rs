@@ -108,7 +108,10 @@ async fn set_password() {
             password_hash: password_hash.clone(),
         })
     );
-    assert!(bcrypt::verify("password", &password_hash).unwrap());
+    assert!(
+        bcrypt::verify("password", &password_hash).unwrap(),
+        "Unable to login with the password"
+    );
     let expected_state = UserState {
         aggregate_id: USER_ID_AGGREGATE_ID,
         username: "username".to_string(),

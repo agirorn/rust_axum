@@ -11,6 +11,7 @@ futures-core = { workspace = true }
 pgmt = { workspace = true }
 eventsourced_core = { workspace = true }
 pgmt_core = { workspace = true }
+deadpool-postgres = { workspace = true }
 tokio = { workspace = true }
 async-trait = { workspace = true }
 derive_more = { workspace = true }
@@ -18,3 +19,4 @@ serde_json = { workspace = true }
 serde = { workspace = true }
 uuid = { workspace = true }
 pretty_assertions = { workspace = true }
+tokio-postgres = { workspace = true }

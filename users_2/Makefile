@@ -8,7 +8,13 @@ build:
 
 .PHONY: dev
 dev:
-	cargo watch -s 'make dev-exec'
+	yardman \
+		Makefile \
+		'src/*.rs' \
+		'src/**/*.rs' \
+		'tests/*.rs' \
+		'../migrations/*.sql' \
+		'make dev-exec'
 
 .PHONY: dev-exec
 dev-exec:

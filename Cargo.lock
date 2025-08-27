@@ -389,19 +389,6 @@ checksum = "2a2330da5de22e8a3cb63252ce2abb30116bf5265e89c0e01bc17015ce30a476"
 
 [[package]]
 name = "deadpool"
-version = "0.9.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "421fe0f90f2ab22016f32a9881be5134fdd71c65298917084b0c7477cbc3856e"
-dependencies = [
- "async-trait",
- "deadpool-runtime",
- "num_cpus",
- "retain_mut",
- "tokio",
-]
-
-[[package]]
-name = "deadpool"
 version = "0.12.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5ed5957ff93768adf7a65ab167a17835c3d2c3c50d084fe305174c112f468e2f"
@@ -413,24 +400,12 @@ dependencies = [
 
 [[package]]
 name = "deadpool-postgres"
-version = "0.10.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "836a24a9d49deefe610b8b60c767a7412e9a931d79a89415cd2d2d71630ca8d7"
-dependencies = [
- "deadpool 0.9.5",
- "log",
- "tokio",
- "tokio-postgres",
-]
-
-[[package]]
-name = "deadpool-postgres"
 version = "0.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3d697d376cbfa018c23eb4caab1fd1883dd9c906a8c034e8d9a3cb06a7e0bef9"
 dependencies = [
  "async-trait",
- "deadpool 0.12.2",
+ "deadpool",
  "getrandom 0.2.16",
  "tokio",
  "tokio-postgres",
@@ -1174,7 +1149,7 @@ source = "git+http://github.com/agirorn/pgmt.git?rev=36e7aff1406cd5e5c01bce49e06
 dependencies = [
  "chrono",
  "crc32fast",
- "deadpool-postgres 0.14.1",
+ "deadpool-postgres",
  "derive_more",
  "dotenvy",
  "postgres-types",
@@ -1408,12 +1383,6 @@ name = "regex-syntax"
 version = "0.8.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2b15c43186be67a4fd63bee50d0303afffcef381492ebe2c5d87f324e1b8815c"
-
-[[package]]
-name = "retain_mut"
-version = "0.1.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4389f1d5789befaf6029ebd9f7dac4af7f7e3d61b69d4f30e2ac02b57e7712b0"
 
 [[package]]
 name = "rustc-demangle"
@@ -1977,6 +1946,7 @@ dependencies = [
  "async-trait",
  "bcrypt",
  "chrono",
+ "deadpool-postgres",
  "derive_more",
  "eventsourced_core",
  "futures-core",
@@ -1987,6 +1957,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+ "tokio-postgres",
  "uuid 1.17.0",
 ]
 
@@ -2122,7 +2093,7 @@ name = "web-server"
 version = "0.1.0"
 dependencies = [
  "axum",
- "deadpool-postgres 0.10.5",
+ "deadpool-postgres",
  "derive_more",
  "serde",
  "serde_json",

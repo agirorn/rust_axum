@@ -5,6 +5,7 @@ use uuid::Uuid;
 use crate::command::SetPassword;
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
+#[serde(tag = "event_name", content = "data", rename_all = "snake_case")]
 pub enum UserEvent {
     Created(Created),
     Deleted,
@@ -50,6 +51,7 @@ pub struct Envelope {
     pub aggregate_id: uuid::Uuid,
     pub event_id: uuid::Uuid,
     pub timestamp: DateTime<Utc>,
+    pub aggregate_type: String,
     pub data: UserEvent,
 }
 
@@ -59,6 +61,7 @@ impl Envelope {
             aggregate_id,
             event_id: uuid::Uuid::new_v4(),
             timestamp: chrono::Utc::now(),
+            aggregate_type: "user".to_string(),
             data,
         }
     }
