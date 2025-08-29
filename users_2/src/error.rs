@@ -12,6 +12,8 @@ pub enum Error {
     Message(String),
     #[from]
     BcryptError(bcrypt::BcryptError),
+    #[from]
+    TokioPostgresError(tokio_postgres::Error),
     // #[from]
     // PoolError(deadpool_postgres::PoolError),
 }

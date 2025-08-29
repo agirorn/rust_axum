@@ -1,9 +1,16 @@
 #![allow(unused)]
 use deadpool_postgres::Client;
+use eventsourced_core::EventStore;
+// use futures_util::TryStreamExt;
+// use futures::TryStreamExt;
+use futures_util::{pin_mut, StreamExt, TryStreamExt};
+// use futures::{StreamExt, TryStreamExt};
 use serde::Deserialize;
 use serde_json::json;
 use tokio_postgres::types::Json;
+// use tokio_stream::StreamExt;
 use users_2::event::{self, Envelope, UserEvent};
+use users_2::UserEventStore;
 use uuid::Uuid;
 
 const USER_ID_AGGREGATE_ID: Uuid = uuid::uuid!("aba80c9b-21c6-4fee-b046-7b069f8d9120");
@@ -104,8 +111,6 @@ async fn stream_no_snap_shot(pool: pgmt::Pool) {
     // assert second is Enabled
     // No snap shot
 
-    use futures_util::{pin_mut, StreamExt, TryStreamExt};
-
     let mut it = db
         .query_raw(
             r#"
@@ -135,7 +140,7 @@ async fn stream_no_snap_shot(pool: pgmt::Pool) {
         .collect::<Vec<_>>()
         .await;
     println!("-x-x-x-x-x-x-x-x-x-x->>> data: {:#?}", rows);
-    assert_eq!(vec![event_created, event_enabled], rows);
+    assert_eq!(vec![event_created.clone(), event_enabled.clone()], rows);
 
     // while let Some(row) = it.try_next().await.unwrap() {
     // while let Some(row) = it.try_next().await.unwrap() {
@@ -143,6 +148,89 @@ async fn stream_no_snap_shot(pool: pgmt::Pool) {
     //     let data: Envelope = data.0;
     //     println!("-=-=->>> data: {:#?}", data);
     // }
+    //
+    //
+    // ######################################################################################
+    let store = UserEventStore::new(pool);
+    let mut stream = store.event_stream(USER_ID_AGGREGATE_ID).await.unwrap();
+    pin_mut!(stream);
+    while let Some(row) = stream.try_next().await.unwrap() {
+        // let data: Json<Envelope> = row.get("envelope");
+        // let data: Envelope = data.0;
+        println!("-X-X->>> data: {:#?}", row);
+    }
+    // ######################################################################################
+
+    let mut stream = store.event_stream(USER_ID_AGGREGATE_ID).await.unwrap();
+    pin_mut!(stream);
+    let first = stream.try_next().await.unwrap(); // should be Some(_)
+    assert!(first.is_some());
+
+    // // pin_mut!(stream);
+    // // while let Some(row) = it.try_next().await.unwrap() {
+    // while let Some(row) = stream.try_next().await.unwrap() {
+    //     // let data: Json<Envelope> = row.get("envelope");
+    //     // let data: Envelope = data.0;
+    //     println!("-X-X->>> data: {:#?}", row);
+    // }
+
+    // let mut stream = store.event_stream(USER_ID_AGGREGATE_ID).await;
+    // pin_mut!(stream);
+    // let first = stream.try_next().await.unwrap(); // should be Some(_)
+    // assert!(first.is_some());
+    // // let rows: Vec<_> = <_ as futures::stream::StreamExt>::take(stream, 2)
+    // //     .try_collect() // futures::TryStreamExt
+    // //     .await
+    // //     .unwrap();
+    // // // let mut rows: Vec<_> = store
+    // // //     .event_stream(USER_ID_AGGREGATE_ID)
+    // // //     .await
+    // // //     .take(2)
+    // // //     .try_collect()
+    // // //     .await
+    // // //     .unwrap();
+    // // // println!("-x-x-x-x-x-x-x-x-x-x->>> data: {:#?}", rows);
+    // // assert_eq!(rows.len(), 2);
+    // // assert_eq!(vec![event_created, event_enabled], rows);
+    // // ##################################################################################
+    //
+    // // let mut it = db
+    // //     .query_raw(
+    // //         r#"
+    // //     SELECT envelope
+    // //       FROM user_events
+    // //      WHERE aggregate_id = $1
+    // //     "#,
+    // //         &[&USER_ID_AGGREGATE_ID],
+    // //     )
+    // //     .await
+    // //     .unwrap();
+    // //
+    let mut stream = store.event_stream(USER_ID_AGGREGATE_ID).await.unwrap();
+    // pin_mut!(it);
+    // let rows = stream.take(2);
+    // // // // let rows = it.take(2).await.unwrap();
+    //
+    // let rows = rows
+    //     .map(|r| -> Envelope {
+    //         match r {
+    //             Ok(r) => r,
+    //             Err(err) => panic!("Error {err}"),
+    //         }
+    //     })
+    //     .collect::<Vec<_>>()
+    //     .await;
+
+    let mut rows: Vec<_> = store
+        .event_stream(USER_ID_AGGREGATE_ID)
+        .await
+        .unwrap()
+        .take(2)
+        .try_collect()
+        .await
+        .unwrap();
+    println!("-x-x-x-x-x-x-x-x-x-x->>> data: {:#?}", rows);
+    assert_eq!(vec![event_created.clone(), event_enabled.clone()], rows);
 
     println!(" ============== DONE ====================");
 }

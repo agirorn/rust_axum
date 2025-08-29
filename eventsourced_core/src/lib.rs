@@ -74,7 +74,7 @@ pub trait Aggregate: Sized {
     {
         // Default implementation for loading the aggregate from the EventStore
         let mut user = Self::new(&aggregate_id);
-        let mut events = event_store.event_stream(aggregate_id);
+        let mut events = event_store.event_stream(aggregate_id).await?;
         while let Some(event) = events.next().await {
             let event = event?;
             user.apply(event, false)?;
@@ -87,7 +87,8 @@ pub trait Command<Id> {
     fn aggregate_id(&self) -> Id; // or &Id if you prefer borrowing
 }
 
-pub type BoxEventStream<E, Err> = Pin<Box<dyn Stream<Item = Result<E, Err>> + Send + 'static>>;
+pub type BoxEventStream<E, Err> =
+    Result<Pin<Box<dyn Stream<Item = Result<E, Err>> + Send + 'static>>, Err>;
 
 /// EventStore stores all the events and the state for a particular aggregate.
 #[async_trait]
@@ -105,7 +106,8 @@ pub trait EventStore: Send + Sync + Debug {
     ) -> Result<(), Self::Error>;
 
     // Stream all events for an aggregate
-    fn event_stream(&self, id: Self::AggregateId) -> BoxEventStream<Self::Event, Self::Error>;
+    async fn event_stream(&self, id: Self::AggregateId)
+        -> BoxEventStream<Self::Event, Self::Error>;
 }
 
 /// EventStoreFor is a nice alias for the EventStore

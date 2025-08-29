@@ -19,6 +19,7 @@ dev:
 .PHONY: dev-exec
 dev-exec:
 	clear
+	# cargo build
 	cargo test -- --nocapture
 	make build
 

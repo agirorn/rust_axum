@@ -48,7 +48,10 @@ impl EventStore for TestUserEventStore {
         Ok(())
     }
 
-    fn event_stream(&self, id: Self::AggregateId) -> BoxEventStream<Self::Event, Self::Error> {
+    async fn event_stream(
+        &self,
+        id: Self::AggregateId,
+    ) -> BoxEventStream<Self::Event, Self::Error> {
         let items: Vec<_> = self
             .events
             .iter()
@@ -56,6 +59,6 @@ impl EventStore for TestUserEventStore {
             .map(|e| Ok(e.clone())) // requires MyEvent: Clone
             .collect();
 
-        Box::pin(stream::iter(items))
+        Ok(Box::pin(stream::iter(items)))
     }
 }

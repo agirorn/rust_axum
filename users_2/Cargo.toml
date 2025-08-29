@@ -8,6 +8,7 @@ bcrypt = { workspace = true }
 chrono = { workspace = true }
 futures-util = { workspace = true }
 futures-core = { workspace = true }
+futures = { workspace = true }
 pgmt = { workspace = true }
 eventsourced_core = { workspace = true }
 pgmt_core = { workspace = true }
@@ -20,3 +21,4 @@ serde = { workspace = true }
 uuid = { workspace = true }
 pretty_assertions = { workspace = true }
 tokio-postgres = { workspace = true }
+tokio-stream = "0.1.17"

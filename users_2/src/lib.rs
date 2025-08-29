@@ -8,3 +8,4 @@ pub mod state;
 pub mod store;
 #[cfg(test)]
 mod tests;
+pub use store::UserEventStore;
