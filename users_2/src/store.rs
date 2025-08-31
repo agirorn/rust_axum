@@ -57,10 +57,10 @@ impl EventStore for UserEventStore {
                             'timestamp',      s."timestamp",
                             'occ_version',    s.occ_version,
                             'aggregate_type', 'user',
-                            'data',           jsonb_build_object(
-                                   'data', s.envelope, -- see note below if not jsonb
-                                   'event_name', 'snapshot'
-                                   )
+                            'data', jsonb_build_object(
+                              'data', s.envelope, -- see note below if not jsonb
+                              'event_name', 'snapshot'
+                            )
                           ) AS envelope,
                           s.aggregate_id,
                           s.occ_version
