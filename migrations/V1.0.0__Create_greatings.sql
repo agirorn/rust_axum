@@ -16,6 +16,7 @@ CREATE TABLE user_events (
   event_id        uuid GENERATED ALWAYS AS ((envelope->>'event_id')::uuid) STORED,
   aggregate_id    uuid GENERATED ALWAYS AS ((envelope->>'aggregate_id')::uuid) STORED,
   aggregate_type  text GENERATED ALWAYS AS (envelope->>'aggregate_type') STORED,
+  occ_version     bigint GENERATED ALWAYS AS ((envelope->>'occ_version')::bigint) STORED,
   recorded_at      timestamptz NOT NULL DEFAULT now(),
   envelope          jsonb NOT NULL,
 
@@ -62,3 +63,11 @@ CREATE TABLE user_events (
     --     let data: Envelope = data.0;
     --     println!("-->> event_id: {event_id:#?}, event_name: {event_name:#?}, aggregate_id: {aggregate_id:#?} data: {data:#?}");
     -- }
+
+CREATE TABLE states (
+  aggregate_id  uuid GENERATED ALWAYS AS ((state->>'aggregate_id')::uuid) STORED PRIMARY KEY,
+    -- Optimistic concurrency control
+  occ_version   bigint GENERATED ALWAYS AS ((state->>'occ_version')::bigint) STORED,
+  timestamp     timestamptz NOT NULL DEFAULT now(),
+  state         jsonb NOT NULL
+)

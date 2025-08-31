@@ -41,12 +41,14 @@ async fn create_user() {
         })
     );
     let expected_state = UserState {
+        event_name: "snapshot".to_string(),
         aggregate_id: USER_ID_AGGREGATE_ID,
         username: "username".to_string(),
         has_password: false,
         exists: true,
         enabled: true,
         password_hash: None,
+        occ_version: 0,
     };
     let aggregate = User::load(&store, USER_ID_AGGREGATE_ID).await.unwrap();
     assert_eq!(expected_state, aggregate.state);
@@ -70,12 +72,14 @@ async fn delete_user() {
     assert_eq!(event.aggregate_id, USER_ID_AGGREGATE_ID);
     assert_eq!(event.data, UserEvent::Deleted);
     let expected_state = UserState {
+        event_name: "snapshot".to_string(),
         aggregate_id: USER_ID_AGGREGATE_ID,
         username: "username".to_string(),
         has_password: false,
         exists: false,
         enabled: true,
         password_hash: None,
+        occ_version: 0,
     };
     let aggregate = User::load(&store, USER_ID_AGGREGATE_ID).await.unwrap();
     assert_eq!(expected_state, aggregate.state);
@@ -113,12 +117,14 @@ async fn set_password() {
         "Unable to login with the password"
     );
     let expected_state = UserState {
+        event_name: "snapshot".to_string(),
         aggregate_id: USER_ID_AGGREGATE_ID,
         username: "username".to_string(),
         has_password: true,
         exists: true,
         enabled: true,
         password_hash: Some(password_hash),
+        occ_version: 0,
     };
     let aggregate = User::load(&store, USER_ID_AGGREGATE_ID).await.unwrap();
     assert_eq!(expected_state, aggregate.state);
@@ -142,12 +148,14 @@ async fn disable_then_enable_user() {
     assert_eq!(event.aggregate_id, USER_ID_AGGREGATE_ID);
     assert_eq!(event.data, UserEvent::Disabled);
     let expected_state = UserState {
+        event_name: "snapshot".to_string(),
         aggregate_id: USER_ID_AGGREGATE_ID,
         username: "username".to_string(),
         has_password: false,
         exists: true,
         enabled: false,
         password_hash: None,
+        occ_version: 0,
     };
     assert_eq!(expected_state, store.get_state_for(&USER_ID_AGGREGATE_ID));
 
@@ -164,12 +172,14 @@ async fn disable_then_enable_user() {
     assert_eq!(event.aggregate_id, USER_ID_AGGREGATE_ID);
     assert_eq!(event.data, UserEvent::Enabled);
     let expected_state = UserState {
+        event_name: "snapshot".to_string(),
         aggregate_id: USER_ID_AGGREGATE_ID,
         username: "username".to_string(),
         has_password: false,
         exists: true,
         enabled: true,
         password_hash: None,
+        occ_version: 0,
     };
 
     assert_eq!(expected_state, store.get_state_for(&USER_ID_AGGREGATE_ID));

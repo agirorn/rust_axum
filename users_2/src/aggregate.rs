@@ -26,11 +26,13 @@ impl Aggregate for User {
         Self {
             events: vec![],
             state: UserState {
+                event_name: "snapshot".to_string(),
                 aggregate_id: *aggregate_id,
                 username: "".to_string(),
                 has_password: false,
                 exists: false,
                 enabled: true,
+                occ_version: 0,
                 password_hash: None,
             },
         }
@@ -65,10 +67,15 @@ impl Aggregate for User {
 }
 
 impl User {
+    fn next_occ_version(&self) -> u64 {
+        self.state.occ_version + 1
+    }
+
     async fn handle_create(&mut self, _cmd: command::Create) -> Result<()> {
         self.apply(
             Envelope::new(
                 self.state.aggregate_id,
+                self.next_occ_version(),
                 event::Created {
                     username: "username".to_string(),
                 }
@@ -81,7 +88,11 @@ impl User {
 
     async fn handle_delete(&mut self, _cmd: command::Delete) -> Result<()> {
         self.apply(
-            Envelope::new(self.state.aggregate_id, UserEvent::Deleted),
+            Envelope::new(
+                self.state.aggregate_id,
+                self.next_occ_version(),
+                UserEvent::Deleted,
+            ),
             true,
         )?;
         Ok(())
@@ -89,7 +100,11 @@ impl User {
 
     async fn handle_enable(&mut self, _cmd: command::Enable) -> Result<()> {
         self.apply(
-            Envelope::new(self.state.aggregate_id, UserEvent::Enabled),
+            Envelope::new(
+                self.state.aggregate_id,
+                self.next_occ_version(),
+                UserEvent::Enabled,
+            ),
             true,
         )?;
         Ok(())
@@ -97,7 +112,11 @@ impl User {
 
     async fn handle_disable(&mut self, _cmd: command::Disable) -> Result<()> {
         self.apply(
-            Envelope::new(self.state.aggregate_id, UserEvent::Disabled),
+            Envelope::new(
+                self.state.aggregate_id,
+                self.next_occ_version(),
+                UserEvent::Disabled,
+            ),
             true,
         )?;
         Ok(())
@@ -107,6 +126,7 @@ impl User {
         self.apply(
             Envelope::new(
                 self.state.aggregate_id,
+                self.next_occ_version(),
                 event::NewPassword {
                     password_hash: bcrypt::hash(cmd.password, bcrypt::DEFAULT_COST)?,
                 }
@@ -121,6 +141,11 @@ impl User {
 impl User {
     fn apply_event(&mut self, event: &Envelope) {
         match event.data.clone() {
+            UserEvent::Snapshot(event) => {
+                unimplemented!(
+                    "The apply_event is not implemented for the UserEvent::SnapShot evnent"
+                );
+            }
             UserEvent::Created(event) => {
                 self.state.exists = true;
                 self.state.username = event.username.clone();

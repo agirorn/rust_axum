@@ -1,12 +1,14 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use tokio_postgres::types::Json;
 use uuid::Uuid;
 
-use crate::command::SetPassword;
+use crate::{command::SetPassword, state::UserState};
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
 #[serde(tag = "event_name", content = "data", rename_all = "snake_case")]
 pub enum UserEvent {
+    Snapshot(UserState),
     Created(Created),
     Deleted,
     Enabled,
@@ -51,17 +53,19 @@ pub struct Envelope {
     pub aggregate_id: uuid::Uuid,
     pub event_id: uuid::Uuid,
     pub timestamp: DateTime<Utc>,
+    pub occ_version: u64,
     pub aggregate_type: String,
     pub data: UserEvent,
 }
 
 impl Envelope {
-    pub fn new(aggregate_id: Uuid, data: UserEvent) -> Self {
+    pub fn new(aggregate_id: Uuid, occ_version: u64, data: UserEvent) -> Self {
         Self {
             aggregate_id,
             event_id: uuid::Uuid::new_v4(),
             timestamp: chrono::Utc::now(),
             aggregate_type: "user".to_string(),
+            occ_version,
             data,
         }
     }
@@ -72,5 +76,11 @@ impl Envelope {
 
     pub fn get_event_id(&self) -> uuid::Uuid {
         self.event_id
+    }
+}
+
+impl From<Json<Envelope>> for Envelope {
+    fn from(value: Json<Envelope>) -> Envelope {
+        value.0
     }
 }

@@ -1,6 +1,7 @@
 #![allow(unused)]
 use deadpool_postgres::Client;
 use eventsourced_core::EventStore;
+use pretty_assertions::assert_eq;
 // use futures_util::TryStreamExt;
 // use futures::TryStreamExt;
 use futures_util::{pin_mut, StreamExt, TryStreamExt};
@@ -10,6 +11,7 @@ use serde_json::json;
 use tokio_postgres::types::Json;
 // use tokio_stream::StreamExt;
 use users_2::event::{self, Envelope, UserEvent};
+use users_2::state::UserState;
 use users_2::UserEventStore;
 use uuid::Uuid;
 
@@ -25,67 +27,67 @@ pub fn add(left: u64, right: u64) -> u64 {
     left + right
 }
 
-#[pgmt::test(migrations = "../migrations")]
-async fn it_works(pool: pgmt::Pool) {
-    let db: Client = pool.get().await.unwrap();
-    let result = add(2, 2);
-    assert_eq!(result, 4);
-    let sql = r#"
-        SELECT 1 as num;
-    "#;
-    if let Ok(rows) = db.query(sql, &[]).await {
-        let v = rows
-            .into_iter()
-            .map(|row| row.get("num"))
-            .collect::<Vec<i32>>();
-        println!("{v:#?}");
-    }
-
-    if let Ok(row) = db.query_one(sql, &[]).await {
-        let v: i32 = row.get("num");
-        println!("{v:#?}");
-    }
-
-    let id = Uuid::new_v4();
-    let name = "event_name";
-    let data = json!({
-        "name": "Alice",
-        "age": 30
-    });
-
-    // let values = vec[&id, &Json(&data)];
-
-    println!("#################################");
-    println!("data: {data}");
-    println!("#################################");
-    let res = db
-        .execute(
-            r#"
-        INSERT INTO events (id, name, data)
-        VALUES ($1, $2, $3::json);
-        "#,
-            &[&id, &name, &Json(&data)],
-        )
-        .await
-        .unwrap();
-
-    #[derive(Deserialize, Debug)]
-    struct S {
-        name: String,
-        age: i32,
-    }
-
-    if let Ok(row) = db
-        .query_one("SELECT id, name, data from events limit 1;", &[])
-        .await
-    {
-        let id: Uuid = row.get("id");
-        let name: String = row.get("name");
-        let data: Json<S> = row.get("data");
-        let data: S = data.0;
-        println!("id: {id:#?}, name: {name:#?}, data: {data:#?}");
-    }
-}
+// #[pgmt::test(migrations = "../migrations")]
+// async fn it_works(pool: pgmt::Pool) {
+//     let db: Client = pool.get().await.unwrap();
+//     let result = add(2, 2);
+//     assert_eq!(result, 4);
+//     let sql = r#"
+//         SELECT 1 as num;
+//     "#;
+//     if let Ok(rows) = db.query(sql, &[]).await {
+//         let v = rows
+//             .into_iter()
+//             .map(|row| row.get("num"))
+//             .collect::<Vec<i32>>();
+//         println!("{v:#?}");
+//     }
+//
+//     if let Ok(row) = db.query_one(sql, &[]).await {
+//         let v: i32 = row.get("num");
+//         println!("{v:#?}");
+//     }
+//
+//     let id = Uuid::new_v4();
+//     let name = "event_name";
+//     let data = json!({
+//         "name": "Alice",
+//         "age": 30
+//     });
+//
+//     // let values = vec[&id, &Json(&data)];
+//
+//     println!("#################################");
+//     println!("data: {data}");
+//     println!("#################################");
+//     let res = db
+//         .execute(
+//             r#"
+//         INSERT INTO events (id, name, data)
+//         VALUES ($1, $2, $3::json);
+//         "#,
+//             &[&id, &name, &Json(&data)],
+//         )
+//         .await
+//         .unwrap();
+//
+//     #[derive(Deserialize, Debug)]
+//     struct S {
+//         name: String,
+//         age: i32,
+//     }
+//
+//     if let Ok(row) = db
+//         .query_one("SELECT id, name, data from events limit 1;", &[])
+//         .await
+//     {
+//         let id: Uuid = row.get("id");
+//         let name: String = row.get("name");
+//         let data: Json<S> = row.get("data");
+//         let data: S = data.0;
+//         println!("id: {id:#?}, name: {name:#?}, data: {data:#?}");
+//     }
+// }
 
 #[pgmt::test(migrations = "../migrations")]
 async fn stream_no_snap_shot(pool: pgmt::Pool) {
@@ -93,134 +95,17 @@ async fn stream_no_snap_shot(pool: pgmt::Pool) {
 
     let event_created = Envelope::new(
         USER_ID_AGGREGATE_ID,
+        1,
         event::Created {
             username: "username".to_lowercase(),
         }
         .into(),
     );
-    let event_enabled = Envelope::new(USER_ID_AGGREGATE_ID, UserEvent::Enabled);
+    let event_enabled = Envelope::new(USER_ID_AGGREGATE_ID, 1, UserEvent::Enabled);
     insert_event(&db, &event_created).await;
     insert_event(&db, &event_enabled).await;
-
-    // print_event_by_event_id(&db, event_created.event_id).await;
-    print_events(&db).await;
-    // Insert Created
-    // Insert Enabled
-    // Stream from EventStore
-    // assert first is Created
-    // assert second is Enabled
-    // No snap shot
-
-    let mut it = db
-        .query_raw(
-            r#"
-        SELECT envelope
-          FROM user_events
-         WHERE aggregate_id = $1
-        "#,
-            &[&USER_ID_AGGREGATE_ID],
-        )
-        .await
-        .unwrap();
-
-    pin_mut!(it);
-    let rows = it.take(2);
-    // let rows = it.take(2).await.unwrap();
-
-    let rows = rows
-        .map(|r| -> Envelope {
-            match r {
-                Ok(r) => {
-                    let p: Json<Envelope> = r.get("envelope");
-                    p.0
-                }
-                Err(err) => panic!("Error {err}"),
-            }
-        })
-        .collect::<Vec<_>>()
-        .await;
-    println!("-x-x-x-x-x-x-x-x-x-x->>> data: {:#?}", rows);
-    assert_eq!(vec![event_created.clone(), event_enabled.clone()], rows);
-
-    // while let Some(row) = it.try_next().await.unwrap() {
-    // while let Some(row) = it.try_next().await.unwrap() {
-    //     let data: Json<Envelope> = row.get("envelope");
-    //     let data: Envelope = data.0;
-    //     println!("-=-=->>> data: {:#?}", data);
-    // }
-    //
-    //
-    // ######################################################################################
     let store = UserEventStore::new(pool);
     let mut stream = store.event_stream(USER_ID_AGGREGATE_ID).await.unwrap();
-    pin_mut!(stream);
-    while let Some(row) = stream.try_next().await.unwrap() {
-        // let data: Json<Envelope> = row.get("envelope");
-        // let data: Envelope = data.0;
-        println!("-X-X->>> data: {:#?}", row);
-    }
-    // ######################################################################################
-
-    let mut stream = store.event_stream(USER_ID_AGGREGATE_ID).await.unwrap();
-    pin_mut!(stream);
-    let first = stream.try_next().await.unwrap(); // should be Some(_)
-    assert!(first.is_some());
-
-    // // pin_mut!(stream);
-    // // while let Some(row) = it.try_next().await.unwrap() {
-    // while let Some(row) = stream.try_next().await.unwrap() {
-    //     // let data: Json<Envelope> = row.get("envelope");
-    //     // let data: Envelope = data.0;
-    //     println!("-X-X->>> data: {:#?}", row);
-    // }
-
-    // let mut stream = store.event_stream(USER_ID_AGGREGATE_ID).await;
-    // pin_mut!(stream);
-    // let first = stream.try_next().await.unwrap(); // should be Some(_)
-    // assert!(first.is_some());
-    // // let rows: Vec<_> = <_ as futures::stream::StreamExt>::take(stream, 2)
-    // //     .try_collect() // futures::TryStreamExt
-    // //     .await
-    // //     .unwrap();
-    // // // let mut rows: Vec<_> = store
-    // // //     .event_stream(USER_ID_AGGREGATE_ID)
-    // // //     .await
-    // // //     .take(2)
-    // // //     .try_collect()
-    // // //     .await
-    // // //     .unwrap();
-    // // // println!("-x-x-x-x-x-x-x-x-x-x->>> data: {:#?}", rows);
-    // // assert_eq!(rows.len(), 2);
-    // // assert_eq!(vec![event_created, event_enabled], rows);
-    // // ##################################################################################
-    //
-    // // let mut it = db
-    // //     .query_raw(
-    // //         r#"
-    // //     SELECT envelope
-    // //       FROM user_events
-    // //      WHERE aggregate_id = $1
-    // //     "#,
-    // //         &[&USER_ID_AGGREGATE_ID],
-    // //     )
-    // //     .await
-    // //     .unwrap();
-    // //
-    let mut stream = store.event_stream(USER_ID_AGGREGATE_ID).await.unwrap();
-    // pin_mut!(it);
-    // let rows = stream.take(2);
-    // // // // let rows = it.take(2).await.unwrap();
-    //
-    // let rows = rows
-    //     .map(|r| -> Envelope {
-    //         match r {
-    //             Ok(r) => r,
-    //             Err(err) => panic!("Error {err}"),
-    //         }
-    //     })
-    //     .collect::<Vec<_>>()
-    //     .await;
-
     let mut rows: Vec<_> = store
         .event_stream(USER_ID_AGGREGATE_ID)
         .await
@@ -229,17 +114,89 @@ async fn stream_no_snap_shot(pool: pgmt::Pool) {
         .try_collect()
         .await
         .unwrap();
-    println!("-x-x-x-x-x-x-x-x-x-x->>> data: {:#?}", rows);
     assert_eq!(vec![event_created.clone(), event_enabled.clone()], rows);
-
-    println!(" ============== DONE ====================");
 }
 
+// #[pgmt::test(migrations = "../migrations")]
+// async fn stream_snap(pool: pgmt::Pool) {
+//     // Insert Snapshot on offset
+//     // assert get snapshot events
+//     // No other events
+// }
+
 #[pgmt::test(migrations = "../migrations")]
-async fn stream_snap(pool: pgmt::Pool) {
-    // Insert Snapshot on offset
-    // assert get snapshot events
+async fn stream_snap_and_created(pool: pgmt::Pool) {
+    // Insert Created
+    // Insert Snapshot on offset 1
+    // Stream from EventStore
+    // assert get snapshot event
     // No other events
+
+    let db = pool.get().await.unwrap();
+    let created_event = Envelope::new(
+        USER_ID_AGGREGATE_ID,
+        1,
+        event::Created {
+            username: "username".to_lowercase(),
+        }
+        .into(),
+    );
+    let state = UserState {
+        event_name: "snapshot".to_string(),
+        aggregate_id: USER_ID_AGGREGATE_ID,
+        username: "username".to_string(),
+        has_password: false,
+        exists: true,
+        enabled: true,
+        password_hash: None,
+        occ_version: 1,
+    };
+    insert_event(&db, &created_event).await;
+    insert_snapshot(&db, &state).await;
+
+    let res = db
+        .query_one(
+            r#"
+                SELECT aggregate_id, state
+                FROM states
+                where aggregate_id = $1;
+            "#,
+            &[&USER_ID_AGGREGATE_ID],
+        )
+        .await;
+
+    match res {
+        Ok(row) => {
+            // let name: String = row.get("name");
+            let aggregate_id: Uuid = row.get("aggregate_id");
+            let state: Json<UserState> = row.get("state");
+            let state: UserState = state.0;
+            println!("aggregate_id: {aggregate_id:#?}, state: {state:#?}");
+        }
+        Err(err) => {
+            panic!("{err:#?}");
+        }
+    }
+    let store = UserEventStore::new(pool);
+    let mut stream = store.event_stream(USER_ID_AGGREGATE_ID).await.unwrap();
+    let mut rows: Vec<_> = store
+        .event_stream(USER_ID_AGGREGATE_ID)
+        .await
+        .unwrap()
+        .take(2)
+        .try_collect()
+        .await
+        .unwrap();
+    let mut snapshot_event = Envelope::new(USER_ID_AGGREGATE_ID, 1, UserEvent::Snapshot(state));
+    // This should not by like this.
+    snapshot_event.timestamp = rows[0].timestamp;
+    snapshot_event.event_id = snapshot_event.aggregate_id;
+    println!("########### ROWS ########################################");
+    println!("{rows:#?}");
+    println!("########### ROWS END ####################################");
+    print_events(&db).await;
+    print_state(&db).await;
+    assert_eq!(vec![snapshot_event.clone()], rows);
 }
 
 #[pgmt::test(migrations = "../migrations")]
@@ -276,6 +233,55 @@ async fn insert_event(db: &Client, envelope: &Envelope) {
         .unwrap();
 }
 
+async fn insert_snapshot(db: &Client, state: &UserState) {
+    let res = db
+        .execute(
+            r#"
+        INSERT INTO states (state)
+        VALUES ($1::json);
+        "#,
+            &[&Json(&state)],
+        )
+        .await
+        .unwrap();
+}
+
+async fn print_state(db: &Client) {
+    match db
+        .query(
+            r#"
+            SELECT aggregate_id, state, timestamp
+            FROM states
+            "#,
+            &[],
+        )
+        .await
+    {
+        Ok(rows) => {
+            println!("============ STATE ==================");
+            for row in rows {
+                // println!("============ ROW -> {event_id} ==================");
+                // let event_name: String = row.get("event_name");
+                // let aggregate_type: String = row.get("aggregate_type");
+                let aggregate_id: Uuid = row.get("aggregate_id");
+                let state: Json<UserState> = row.get("state");
+                let state: UserState = state.0;
+                // println!(" ---->>>> event_id: {event_id:#?}");
+                println!(" ---->>>> aggregate_id: {aggregate_id:#?}");
+                // println!(" ---->>>> event_name: {event_name:#?}");
+                // println!(" ---->>>> aggregate_type: {aggregate_type:#?}");
+                println!(" ---->>>> state: {state:#?}");
+                println!(" ---->>>> found");
+            }
+            println!("============ STATE END ==================");
+        }
+        Err(err) => {
+            println!("Error: {err:#?}");
+            panic!("did not get the event");
+        }
+    }
+}
+
 async fn print_events(db: &Client) {
     match db
         .query(
@@ -292,7 +298,7 @@ async fn print_events(db: &Client) {
         .await
     {
         Ok(rows) => {
-            println!("============ ROWS ==================");
+            println!("============ USER_EVENTS ==================");
             for row in rows {
                 let event_id: Uuid = row.get("event_id");
                 println!("============ ROW -> {event_id} ==================");
@@ -308,6 +314,7 @@ async fn print_events(db: &Client) {
                 println!(" ---->>>> data: {envelope:#?}");
                 println!(" ---->>>> found");
             }
+            println!("============ USER_EVENTS END ==================");
         }
         Err(err) => {
             println!("Error: {err:#?}");
