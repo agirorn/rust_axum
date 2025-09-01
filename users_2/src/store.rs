@@ -40,60 +40,46 @@ impl EventStore for UserEventStore {
         let db = self.pool.get().await.unwrap();
         let sql = r#"
             WITH s AS (
-                SELECT aggregate_id,
-                       occ_version,
-                       state AS envelope,
-                       "timestamp"
-                  FROM states
-                 WHERE aggregate_id = $1
-                 LIMIT 1
+              SELECT jsonb_build_object(
+                       'aggregate_id',   r.aggregate_id,
+                       'event_id',       r.aggregate_id,
+                       'timestamp',      r."timestamp",
+                       'occ_version',    r.occ_version,
+                       'aggregate_type', 'user',
+                       'data', jsonb_build_object(
+                         'data', r.state,
+                         'event_name', 'snapshot'
+                       )
+                     ) AS envelope,
+                     r.aggregate_id,
+                     r.occ_version
+                FROM (
+                       SELECT state, aggregate_id, occ_version, "timestamp"
+                         FROM states
+                        WHERE aggregate_id = $1
+                        LIMIT 1
+                     ) as r
             )
             SELECT x.envelope
-            FROM (
-                   -- 1) snapshot row (only if state exists) → build the desired JSON shape
-                   SELECT jsonb_build_object(
-                            'aggregate_id',   s.aggregate_id,
-                            'event_id',       s.aggregate_id,
-                            'timestamp',      s."timestamp",
-                            'occ_version',    s.occ_version,
-                            'aggregate_type', 'user',
-                            'data', jsonb_build_object(
-                              'data', s.envelope, -- see note below if not jsonb
-                              'event_name', 'snapshot'
-                            )
-                          ) AS envelope,
-                          s.aggregate_id,
-                          s.occ_version
-                   FROM s
-
-                   UNION ALL
-
-                   -- 2) events newer than the snapshot (or > 0 if no snapshot)
-                   SELECT e.envelope,      -- leave events as-is
-                          e.aggregate_id,
-                          e.occ_version
-                   FROM user_events e
-                   LEFT JOIN s ON s.aggregate_id = e.aggregate_id
-                   WHERE e.aggregate_id = $1
-                     AND e.occ_version >  COALESCE(s.occ_version, 0)
-                 ) AS x
-            ORDER BY occ_version;
+              FROM (
+                     -- SNAPSHOT ROW (only if state exists) → build the desired JSON shape
+                     SELECT s.envelope, s.aggregate_id, s.occ_version FROM s
+                     UNION ALL
+                     -- EVENTS NEWER THAN THE SNAPSHOT (or > 0 if no snapshot)
+                     SELECT e.envelope, e.aggregate_id, e.occ_version
+                     FROM user_events e
+                     LEFT JOIN s ON s.aggregate_id = e.aggregate_id
+                     WHERE e.aggregate_id = $1
+                       AND e.occ_version > COALESCE(s.occ_version, 0)
+                   ) AS x
+             ORDER BY occ_version;
         "#;
-
-        // let sql = r#"
-        //     SELECT envelope
-        //       FROM user_events
-        //      WHERE aggregate_id = $1
-        // "#;
         Ok(db
             .query_raw(sql, &[&id])
             .await
             .unwrap()
             .and_then(|row| async move {
-                // println!("---->>> row: {:#?}", row);
                 let j = row.get::<&str, Json<serde_json::Value>>("envelope");
-                println!("---->>> row: {:#?}", j);
-                // Ok(row.get::<&str, Json<Envelope>>("envelope").into())
                 Ok(row.get::<&str, Json<Envelope>>("envelope").into())
             })
             .map_err(|e| e.into())

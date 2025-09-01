@@ -48,7 +48,7 @@ async fn create_user() {
         exists: true,
         enabled: true,
         password_hash: None,
-        occ_version: 0,
+        occ_version: 1,
     };
     let aggregate = User::load(&store, USER_ID_AGGREGATE_ID).await.unwrap();
     assert_eq!(expected_state, aggregate.state);
@@ -79,7 +79,7 @@ async fn delete_user() {
         exists: false,
         enabled: true,
         password_hash: None,
-        occ_version: 0,
+        occ_version: 2,
     };
     let aggregate = User::load(&store, USER_ID_AGGREGATE_ID).await.unwrap();
     assert_eq!(expected_state, aggregate.state);
@@ -124,7 +124,7 @@ async fn set_password() {
         exists: true,
         enabled: true,
         password_hash: Some(password_hash),
-        occ_version: 0,
+        occ_version: 2,
     };
     let aggregate = User::load(&store, USER_ID_AGGREGATE_ID).await.unwrap();
     assert_eq!(expected_state, aggregate.state);
@@ -155,7 +155,7 @@ async fn disable_then_enable_user() {
         exists: true,
         enabled: false,
         password_hash: None,
-        occ_version: 0,
+        occ_version: 2,
     };
     assert_eq!(expected_state, store.get_state_for(&USER_ID_AGGREGATE_ID));
 
@@ -179,7 +179,7 @@ async fn disable_then_enable_user() {
         exists: true,
         enabled: true,
         password_hash: None,
-        occ_version: 0,
+        occ_version: 3,
     };
 
     assert_eq!(expected_state, store.get_state_for(&USER_ID_AGGREGATE_ID));

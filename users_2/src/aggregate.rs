@@ -140,6 +140,7 @@ impl User {
 
 impl User {
     fn apply_event(&mut self, event: &Envelope) {
+        self.state.occ_version = event.occ_version;
         match event.data.clone() {
             UserEvent::Snapshot(event) => {
                 unimplemented!(

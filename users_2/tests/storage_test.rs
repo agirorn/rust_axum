@@ -101,7 +101,7 @@ async fn stream_no_snap_shot(pool: pgmt::Pool) {
         }
         .into(),
     );
-    let event_enabled = Envelope::new(USER_ID_AGGREGATE_ID, 1, UserEvent::Enabled);
+    let event_enabled = Envelope::new(USER_ID_AGGREGATE_ID, 2, UserEvent::Enabled);
     insert_event(&db, &event_created).await;
     insert_event(&db, &event_enabled).await;
     let store = UserEventStore::new(pool);
@@ -154,29 +154,6 @@ async fn stream_snap_and_created(pool: pgmt::Pool) {
     insert_event(&db, &created_event).await;
     insert_snapshot(&db, &state).await;
 
-    let res = db
-        .query_one(
-            r#"
-                SELECT aggregate_id, state
-                FROM states
-                where aggregate_id = $1;
-            "#,
-            &[&USER_ID_AGGREGATE_ID],
-        )
-        .await;
-
-    match res {
-        Ok(row) => {
-            // let name: String = row.get("name");
-            let aggregate_id: Uuid = row.get("aggregate_id");
-            let state: Json<UserState> = row.get("state");
-            let state: UserState = state.0;
-            println!("aggregate_id: {aggregate_id:#?}, state: {state:#?}");
-        }
-        Err(err) => {
-            panic!("{err:#?}");
-        }
-    }
     let store = UserEventStore::new(pool);
     let mut stream = store.event_stream(USER_ID_AGGREGATE_ID).await.unwrap();
     let mut rows: Vec<_> = store
@@ -188,14 +165,12 @@ async fn stream_snap_and_created(pool: pgmt::Pool) {
         .await
         .unwrap();
     let mut snapshot_event = Envelope::new(USER_ID_AGGREGATE_ID, 1, UserEvent::Snapshot(state));
-    // This should not by like this.
+    // This timestamp  should not by like this.
     snapshot_event.timestamp = rows[0].timestamp;
+    // Is is a geed ides to re-use the aggregate_id as the event id.
+    // Might is be better to just generate a uuid or simply store an id on the snapshot.
+    // does any of this matter
     snapshot_event.event_id = snapshot_event.aggregate_id;
-    println!("########### ROWS ########################################");
-    println!("{rows:#?}");
-    println!("########### ROWS END ####################################");
-    print_events(&db).await;
-    print_state(&db).await;
     assert_eq!(vec![snapshot_event.clone()], rows);
 }
 
