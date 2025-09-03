@@ -201,10 +201,6 @@ async fn save_events_test(pool: pgmt::Pool) {
     let mut events = vec![created_event.clone()];
     store.save(&mut events, &state).await.unwrap();
     let db = pool.get().await.unwrap();
-    // print_events(&db).await;
-    // print_states(&db).await;
-    // print_event_by_event_id(&db, created_event.event_id).await;
-    // println!("{:#?}", get_events(&db).await.unwrap());
     assert_eq!(
         get_events(&db).await.unwrap(),
         vec![EventRow {
@@ -257,65 +253,37 @@ async fn stream_snap_and_one_moer_event(pool: pgmt::Pool) {
 }
 
 async fn insert_event(db: &Client, envelope: &Envelope) {
-    let res = db
-        .execute(
-            r#"
+    let sql = r#"
         INSERT INTO user_events (envelope)
         VALUES ($1::json);
-        "#,
-            &[&Json(&envelope)],
-        )
-        .await
-        .unwrap();
+    "#;
+    db.execute(sql, &[&Json(&envelope)]).await.unwrap();
 }
 
 async fn insert_snapshot(db: &Client, state: &UserState) {
-    let res = db
-        .execute(
-            r#"
+    let sql = r#"
         INSERT INTO states (state)
         VALUES ($1::json);
-        "#,
-            &[&Json(&state)],
-        )
-        .await
-        .unwrap();
+    "#;
+    db.execute(sql, &[&Json(&state)]).await.unwrap();
 }
 
 async fn print_states(db: &Client) {
-    match db
-        .query(
-            r#"
-            SELECT aggregate_id, state, timestamp
-            FROM states
-            "#,
-            &[],
-        )
-        .await
-    {
-        Ok(rows) => {
-            println!("============ STATE ==================");
-            for row in rows {
-                // println!("============ ROW -> {event_id} ==================");
-                // let event_name: String = row.get("event_name");
-                // let aggregate_type: String = row.get("aggregate_type");
-                let aggregate_id: Uuid = row.get("aggregate_id");
-                let state: Json<UserState> = row.get("state");
-                let state: UserState = state.0;
-                // println!(" ---->>>> event_id: {event_id:#?}");
-                println!(" ---->>>> aggregate_id: {aggregate_id:#?}");
-                // println!(" ---->>>> event_name: {event_name:#?}");
-                // println!(" ---->>>> aggregate_type: {aggregate_type:#?}");
-                println!(" ---->>>> state: {state:#?}");
-                println!(" ---->>>> found");
-            }
-            println!("============ STATE END ==================");
-        }
-        Err(err) => {
-            println!("Error: {err:#?}");
-            panic!("did not get the event");
-        }
+    let sql = r#"
+        SELECT aggregate_id, state, timestamp
+        FROM states
+    "#;
+    let rows = db.query(sql, &[]).await.unwrap();
+    println!("============ STATE ==================");
+    for row in rows {
+        let aggregate_id: Uuid = row.get("aggregate_id");
+        let state: Json<UserState> = row.get("state");
+        let state: UserState = state.0;
+        println!(" ---->>>> aggregate_id: {aggregate_id:#?}");
+        println!(" ---->>>> state: {state:#?}");
+        println!(" ---->>>> found");
     }
+    println!("============ STATE END ==================");
 }
 
 #[derive(Debug, PartialEq)]
@@ -386,118 +354,48 @@ async fn get_states(db: &Client) -> users_2::error::Result<Vec<StateRow>> {
 }
 
 async fn print_events(db: &Client) {
-    match db
-        .query(
-            r#"
-            SELECT event_id,
-                   aggregate_type,
-                   aggregate_id,
-                   envelope,
-                   event_name
-            FROM user_events
-            "#,
-            &[],
-        )
-        .await
-    {
-        Ok(rows) => {
-            println!("============ USER_EVENTS ==================");
-            for row in rows {
-                let event_id: Uuid = row.get("event_id");
-                println!("============ ROW -> {event_id} ==================");
-                let event_name: String = row.get("event_name");
-                let aggregate_type: String = row.get("aggregate_type");
-                let aggregate_id: Uuid = row.get("aggregate_id");
-                let envelope: Json<Envelope> = row.get("envelope");
-                let envelope: Envelope = envelope.0;
-                println!(" ---->>>> event_id: {event_id:#?}");
-                println!(" ---->>>> aggregate_id: {aggregate_id:#?}");
-                println!(" ---->>>> event_name: {event_name:#?}");
-                println!(" ---->>>> aggregate_type: {aggregate_type:#?}");
-                println!(" ---->>>> data: {envelope:#?}");
-                println!(" ---->>>> found");
-            }
-            println!("============ USER_EVENTS END ==================");
-        }
-        Err(err) => {
-            println!("Error: {err:#?}");
-            panic!("did not get the event");
-        }
+    let sql = r#"
+        SELECT event_id, aggregate_type, aggregate_id, envelope, event_name
+        FROM user_events
+    "#;
+    let rows = db.query(sql, &[]).await.unwrap();
+    println!("============ USER_EVENTS ==================");
+    for row in rows {
+        let event_id: Uuid = row.get("event_id");
+        println!("============ ROW -> {event_id} ==================");
+        let event_name: String = row.get("event_name");
+        let aggregate_type: String = row.get("aggregate_type");
+        let aggregate_id: Uuid = row.get("aggregate_id");
+        let envelope: Json<Envelope> = row.get("envelope");
+        let envelope: Envelope = envelope.0;
+        println!(" ---->>>> event_id: {event_id:#?}");
+        println!(" ---->>>> aggregate_id: {aggregate_id:#?}");
+        println!(" ---->>>> event_name: {event_name:#?}");
+        println!(" ---->>>> aggregate_type: {aggregate_type:#?}");
+        println!(" ---->>>> data: {envelope:#?}");
+        println!(" ---->>>> found");
     }
+    println!("============ USER_EVENTS END ==================");
 }
 
 async fn print_event_by_event_id(db: &Client, id: Uuid) {
-    match db
-        .query_one(
-            r#"
-            SELECT event_id,
-                   aggregate_type,
-                   aggregate_id,
-                   envelope,
-                   event_name
-            FROM user_events
-            WHERE event_id = $1
-            LIMIT 1;
-            "#,
-            &[&id],
-        )
-        .await
-    {
-        Ok(row) => {
-            let event_id: Uuid = row.get("event_id");
-            let event_name: String = row.get("event_name");
-            let aggregate_type: String = row.get("aggregate_type");
-            let aggregate_id: Uuid = row.get("aggregate_id");
-            let envelope: Json<Envelope> = row.get("envelope");
-            let envelope: Envelope = envelope.0;
-            println!(" ---->>>> event_id: {event_id:#?}");
-            println!(" ---->>>> aggregate_id: {aggregate_id:#?}");
-            println!(" ---->>>> event_name: {event_name:#?}");
-            println!(" ---->>>> aggregate_type: {aggregate_type:#?}");
-            println!(" ---->>>> data: {envelope:#?}");
-            println!(" ---->>>> found");
-        }
-        Err(err) => {
-            println!("Error: {err:#?}");
-            panic!("did not get the event be eventy_id {id}");
-        }
-    }
+    let sql = r#"
+        SELECT event_id, aggregate_type, aggregate_id, envelope, event_name
+        FROM user_events
+        WHERE event_id = $1
+        LIMIT 1;
+    "#;
+    let row = db.query_one(sql, &[&id]).await.unwrap();
+    let event_id: Uuid = row.get("event_id");
+    let event_name: String = row.get("event_name");
+    let aggregate_type: String = row.get("aggregate_type");
+    let aggregate_id: Uuid = row.get("aggregate_id");
+    let envelope: Json<Envelope> = row.get("envelope");
+    let envelope: Envelope = envelope.0;
+    println!(" ---->>>> event_id: {event_id:#?}");
+    println!(" ---->>>> aggregate_id: {aggregate_id:#?}");
+    println!(" ---->>>> event_name: {event_name:#?}");
+    println!(" ---->>>> aggregate_type: {aggregate_type:#?}");
+    println!(" ---->>>> data: {envelope:#?}");
+    println!(" ---->>>> found");
 }
-
-// async fn print_events(db: &Client) {
-//     match db
-//         .query(
-//             r#"
-//             SELECT event_id,
-//                    aggregate_type,
-//                    aggregate_id,
-//                    envelope,
-//                    event_name
-//             FROM user_events
-//             "#,
-//             &[],
-//         )
-//         .await
-//     {
-//         Ok(rows) => {
-//             for row in rows {
-//                 let event_id: Uuid = row.get("event_id");
-//                 let event_name: String = row.get("event_name");
-//                 let aggregate_type: String = row.get("aggregate_type");
-//                 let aggregate_id: Uuid = row.get("aggregate_id");
-//                 let envelope: Json<Envelope> = row.get("envelope");
-//                 let envelope: Envelope = envelope.0;
-//                 println!(" ---->>>> event_id: {event_id:#?}");
-//                 println!(" ---->>>> aggregate_id: {aggregate_id:#?}");
-//                 println!(" ---->>>> event_name: {event_name:#?}");
-//                 println!(" ---->>>> aggregate_type: {aggregate_type:#?}");
-//                 println!(" ---->>>> data: {envelope:#?}");
-//                 println!(" ---->>>> found");
-//             }
-//         }
-//         Err(err) => {
-//             println!("Error: {err:#?}");
-//             panic!("did not get the event be eventy_id {id}");
-//         }
-//     }
-// }
