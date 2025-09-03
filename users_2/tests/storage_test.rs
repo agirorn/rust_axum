@@ -1,17 +1,19 @@
 #![allow(unused)]
+use chrono::{DateTime, Utc};
 use deadpool_postgres::Client;
 use eventsourced_core::EventStore;
 use pretty_assertions::assert_eq;
 // use futures_util::TryStreamExt;
 // use futures::TryStreamExt;
 use futures_util::{pin_mut, StreamExt, TryStreamExt};
+use serde::de::{value, Expected};
 // use futures::{StreamExt, TryStreamExt};
 use serde::Deserialize;
 use serde_json::json;
 use tokio_postgres::types::Json;
 // use tokio_stream::StreamExt;
 use users_2::event::{self, Envelope, UserEvent};
-use users_2::state::UserState;
+use users_2::state::{self, UserState};
 use users_2::UserEventStore;
 use uuid::Uuid;
 
@@ -175,6 +177,65 @@ async fn stream_snap_and_created(pool: pgmt::Pool) {
 }
 
 #[pgmt::test(migrations = "../migrations")]
+async fn save_events_test(pool: pgmt::Pool) {
+    let db = pool.get().await.unwrap();
+    let created_event = Envelope::new(
+        USER_ID_AGGREGATE_ID,
+        1,
+        event::Created {
+            username: "username".to_lowercase(),
+        }
+        .into(),
+    );
+    let state = UserState {
+        event_name: "snapshot".to_string(),
+        aggregate_id: USER_ID_AGGREGATE_ID,
+        username: "username".to_string(),
+        has_password: false,
+        exists: true,
+        enabled: true,
+        password_hash: None,
+        occ_version: 1,
+    };
+    let mut store = UserEventStore::new(pool.clone());
+    let mut events = vec![created_event.clone()];
+    store.save(&mut events, &state).await.unwrap();
+    let db = pool.get().await.unwrap();
+    // print_events(&db).await;
+    // print_states(&db).await;
+    // print_event_by_event_id(&db, created_event.event_id).await;
+    // println!("{:#?}", get_events(&db).await.unwrap());
+    assert_eq!(
+        get_events(&db).await.unwrap(),
+        vec![EventRow {
+            event_id: created_event.event_id,
+            event_name: "created".to_string(),
+            aggregate_type: "user".to_string(),
+            aggregate_id: USER_ID_AGGREGATE_ID,
+            envelope: created_event
+        }]
+    );
+
+    let states = get_states(&db).await.unwrap();
+    let expected = vec![StateRow {
+        aggregate_id: USER_ID_AGGREGATE_ID,
+        occ_version: 1,
+        timestamp: states[0].timestamp,
+        state: UserState {
+            event_name: "snapshot".to_string(),
+            aggregate_id: USER_ID_AGGREGATE_ID,
+            username: "username".to_string(),
+            has_password: false,
+            occ_version: 1,
+            exists: true,
+            enabled: true,
+            password_hash: None,
+        },
+    }];
+    assert_eq!(states, expected);
+}
+
+#[pgmt::test(migrations = "../migrations")]
 async fn stream_snap_and_no_event(pool: pgmt::Pool) {
     // Insert Created
     // Insert Enabled
@@ -221,7 +282,7 @@ async fn insert_snapshot(db: &Client, state: &UserState) {
         .unwrap();
 }
 
-async fn print_state(db: &Client) {
+async fn print_states(db: &Client) {
     match db
         .query(
             r#"
@@ -255,6 +316,73 @@ async fn print_state(db: &Client) {
             panic!("did not get the event");
         }
     }
+}
+
+#[derive(Debug, PartialEq)]
+struct EventRow {
+    event_id: Uuid,
+    aggregate_type: String,
+    aggregate_id: Uuid,
+    envelope: Envelope,
+    event_name: String,
+    // occ_version: u64
+}
+
+impl From<tokio_postgres::Row> for EventRow {
+    fn from(row: tokio_postgres::Row) -> Self {
+        Self {
+            event_name: row.get("event_name"),
+            aggregate_type: row.get("aggregate_type"),
+            aggregate_id: row.get("aggregate_id"),
+            event_id: row.get("event_id"),
+            envelope: row.get::<&str, Json<Envelope>>("envelope").0,
+        }
+    }
+}
+
+async fn get_events(db: &Client) -> users_2::error::Result<Vec<EventRow>> {
+    let sql = r#"
+        SELECT event_id, aggregate_type, aggregate_id, envelope, event_name
+        FROM user_events
+    "#;
+    Ok(db
+        .query(sql, &[])
+        .await?
+        .into_iter()
+        .map(|row| row.into())
+        .collect())
+}
+
+#[derive(Debug, PartialEq)]
+struct StateRow {
+    aggregate_id: Uuid,
+    occ_version: i64,
+    timestamp: DateTime<Utc>,
+    state: UserState,
+}
+
+impl From<tokio_postgres::Row> for StateRow {
+    fn from(row: tokio_postgres::Row) -> Self {
+        Self {
+            aggregate_id: row.get("aggregate_id"),
+            occ_version: row.get("occ_version"),
+            timestamp: row.get("timestamp"),
+            state: row.get::<&str, Json<UserState>>("state").0,
+        }
+    }
+}
+
+async fn get_states(db: &Client) -> users_2::error::Result<Vec<StateRow>> {
+    let sql = r#"
+        SELECT aggregate_id, occ_version, timestamp, state
+        FROM states
+    "#;
+    Ok(db
+        .query(sql, &[])
+        .await?
+        .into_iter()
+        .map(|row| row.into())
+        .collect())
 }
 
 async fn print_events(db: &Client) {
@@ -335,3 +463,41 @@ async fn print_event_by_event_id(db: &Client, id: Uuid) {
         }
     }
 }
+
+// async fn print_events(db: &Client) {
+//     match db
+//         .query(
+//             r#"
+//             SELECT event_id,
+//                    aggregate_type,
+//                    aggregate_id,
+//                    envelope,
+//                    event_name
+//             FROM user_events
+//             "#,
+//             &[],
+//         )
+//         .await
+//     {
+//         Ok(rows) => {
+//             for row in rows {
+//                 let event_id: Uuid = row.get("event_id");
+//                 let event_name: String = row.get("event_name");
+//                 let aggregate_type: String = row.get("aggregate_type");
+//                 let aggregate_id: Uuid = row.get("aggregate_id");
+//                 let envelope: Json<Envelope> = row.get("envelope");
+//                 let envelope: Envelope = envelope.0;
+//                 println!(" ---->>>> event_id: {event_id:#?}");
+//                 println!(" ---->>>> aggregate_id: {aggregate_id:#?}");
+//                 println!(" ---->>>> event_name: {event_name:#?}");
+//                 println!(" ---->>>> aggregate_type: {aggregate_type:#?}");
+//                 println!(" ---->>>> data: {envelope:#?}");
+//                 println!(" ---->>>> found");
+//             }
+//         }
+//         Err(err) => {
+//             println!("Error: {err:#?}");
+//             panic!("did not get the event be eventy_id {id}");
+//         }
+//     }
+// }

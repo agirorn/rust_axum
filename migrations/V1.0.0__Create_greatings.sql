@@ -36,7 +36,9 @@ CREATE TABLE user_events (
 
 CREATE TABLE states (
   aggregate_id  uuid GENERATED ALWAYS AS ((state->>'aggregate_id')::uuid) STORED PRIMARY KEY,
-    -- Optimistic concurrency control
+  --
+  -- occ_version serves as a OPTIMIZING CONCURRENT VERSIONS
+  --
   occ_version   bigint GENERATED ALWAYS AS ((state->>'occ_version')::bigint) STORED,
   timestamp     timestamptz NOT NULL DEFAULT now(),
   state         jsonb NOT NULL
