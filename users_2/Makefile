@@ -20,6 +20,7 @@ dev:
 dev-exec:
 	clear
 	# cargo build
+	# /usr/bin/time -p cargo test -- --nocapture
 	cargo test -- --nocapture
 	make build
 

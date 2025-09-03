@@ -32,129 +32,46 @@ impl EventStore for UserEventStore {
     type Error = crate::error::Error;
     type AggregateId = Uuid;
 
-    // async fn save(&mut self, events: &mut Vec<Self::Event>, state: &Self::State) -> Result<()> {
-    //     let mut client = self.pool.get().await.unwrap();
-    //     let tx = client.build_transaction().start().await?;
-    //
-    //     // Build one SQL statement. We keep your two INSERTs but fuse them with CTEs
-    //     // so it remains ONE statement (extended protocol requirement).
-    //     let mut sql = String::from(
-    //         r#"
-    //         WITH upsert_state AS (
-    //             INSERT INTO states (state)
-    //             VALUES ($1)
-    //             ON CONFLICT (aggregate_id)
-    //             DO UPDATE SET
-    //                 state = EXCLUDED.state
-    //             RETURNING 1
-    //         )
-    //         "#,
-    //     );
-    //     // Keep Json wrappers alive here
-    //     let mut owned_params: Vec<Json<&JsonValue>> = Vec::new();
-    //     owned_params.push(Json(&serde_json::json!(&state)));
-    //     // // Bind params: $1 is the state JSON, followed by one $n per event payload
-    //     // let mut params: Vec<&(dyn ToSql + Sync)> = Vec::with_capacity(1 + events.len());
-    //     // params.push(&Json(&state));
-    //
-    //     if !events.is_empty() {
-    //         sql.push_str(
-    //             r#"
-    //             , insert_events AS (
-    //                 INSERT INTO events (envelope)
-    //                 VALUES
-    //             "#,
-    //         );
-    //
-    //         // Append "($2), ($3), ..." for all events
-    //         use std::fmt::Write as _;
-    //         let mut first = true;
-    //         let mut next_idx = 2;
-    //         for ev in events.iter() {
-    //             if !first {
-    //                 sql.push_str(", ");
-    //             }
-    //             first = false;
-    //             write!(&mut sql, "(${})", next_idx).unwrap();
-    //
-    //             owned_params.push(Json(&serde_json::json!(&ev)));
-    //             next_idx += 1;
-    //         }
-    //
-    //         sql.push_str(
-    //             r#"
-    //                 RETURNING 1
-    //             )
-    //             SELECT 1
-    //             "#,
-    //         );
-    //     } else {
-    //         // No events this time; still return something so it's a valid statement.
-    //         sql.push_str(" SELECT 1 ");
-    //     }
-    //
-    //     // Execute the single statement with dynamic parameters
-    //     tx.execute_raw(&sql, owned_params.iter().copied()).await?;
-    //
-    //     tx.commit().await?;
-    //     events.clear(); // optional
-    //     Ok(())
-    // }
-
     async fn save(&mut self, events: &mut Vec<Self::Event>, state: &Self::State) -> Result<()> {
-        // unimplemented!("EventStore.save is not implemented for EventStore");
-        // for projection in projections {
-        //     prjection(events, state).await?
-        // }
-
-        // Get client
-        let mut client = self.pool.get().await.unwrap();
-
-        // Begin transaction
-        let transaction = client.build_transaction().start().await?;
-
-        // Prepare statements
-        let stmt_insert_event = transaction
-            .prepare(
+        let mut state_values: Vec<Json<JsonValue>> = vec![Json(serde_json::json!(&state))];
+        let mut state_sql = String::from(
+            r#"
+                INSERT INTO states (state) VALUES ($1)
+                ON CONFLICT (aggregate_id)
+                DO UPDATE SET state = EXCLUDED.state
+            "#,
+        );
+        let mut events_values: Vec<Json<JsonValue>> = vec![];
+        let mut events_sql = "".to_string();
+        if !events.is_empty() {
+            events_sql.push_str(
                 r#"
                 INSERT INTO user_events (envelope)
-                VALUES ($1)
+                VALUES
                 "#,
-            )
-            .await?;
+            );
 
-        let stmt_upsert_state = transaction
-            .prepare(
-                r#"
-                INSERT INTO states (state)
-                VALUES ($1)
-                ON CONFLICT (aggregate_id)
-                DO UPDATE SET
-                    state    = EXCLUDED.state
-                "#,
-            )
-            .await?;
-
-        // Insert/Upsert state
-        transaction
-            .execute(&stmt_upsert_state, &[&Json(&state)])
-            .await?;
-
-        // Insert events
-        println!("--->>> events");
-        for event in events.iter() {
-            println!("event {}", event.event_id);
-            transaction
-                .execute(&stmt_insert_event, &[&Json(&event)])
-                .await?;
+            // Append "($2), ($3), ..." for all events
+            use std::fmt::Write as _;
+            let mut first = true;
+            let mut idx = 1;
+            for ev in events.iter() {
+                if !first {
+                    events_sql.push_str(", ");
+                }
+                first = false;
+                write!(&mut events_sql, "(${})", idx).unwrap();
+                events_values.push(Json(serde_json::json!(&ev)));
+                idx += 1;
+            }
         }
-
-        // Commit
+        let mut client = self.pool.get().await.unwrap();
+        let transaction = client.build_transaction().start().await?;
+        transaction.execute_raw(&state_sql, &state_values).await?;
+        if !events_sql.is_empty() {
+            transaction.execute_raw(&events_sql, &events_values).await?;
+        }
         transaction.commit().await?;
-
-        // Clear buffer (optional)
-        events.clear();
-
         Ok(())
     }
 
