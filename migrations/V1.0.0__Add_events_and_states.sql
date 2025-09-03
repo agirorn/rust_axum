@@ -1,18 +1,4 @@
-create table greetings (
-  message text
-);
-
-insert into greetings (message)
-values ('Hello, World!');
-
-
-create table events (
-  id uuid,
-  name text,
-  data jsonb
-);
-
-CREATE TABLE user_events (
+CREATE TABLE events (
   envelope        jsonb NOT NULL,
   -- Convenience columns for filtering/indexing
   event_id        uuid GENERATED ALWAYS AS ((envelope->>'event_id')::uuid) STORED,
@@ -42,4 +28,4 @@ CREATE TABLE states (
   occ_version   bigint GENERATED ALWAYS AS ((state->>'occ_version')::bigint) STORED,
   timestamp     timestamptz NOT NULL DEFAULT now(),
   state         jsonb NOT NULL
-)
+);

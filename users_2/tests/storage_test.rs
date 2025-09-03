@@ -254,7 +254,7 @@ async fn stream_snap_and_one_moer_event(pool: pgmt::Pool) {
 
 async fn insert_event(db: &Client, envelope: &Envelope) {
     let sql = r#"
-        INSERT INTO user_events (envelope)
+        INSERT INTO events (envelope)
         VALUES ($1::json);
     "#;
     db.execute(sql, &[&Json(&envelope)]).await.unwrap();
@@ -311,7 +311,7 @@ impl From<tokio_postgres::Row> for EventRow {
 async fn get_events(db: &Client) -> users_2::error::Result<Vec<EventRow>> {
     let sql = r#"
         SELECT event_id, aggregate_type, aggregate_id, envelope, event_name
-        FROM user_events
+        FROM events
     "#;
     Ok(db
         .query(sql, &[])
@@ -356,10 +356,10 @@ async fn get_states(db: &Client) -> users_2::error::Result<Vec<StateRow>> {
 async fn print_events(db: &Client) {
     let sql = r#"
         SELECT event_id, aggregate_type, aggregate_id, envelope, event_name
-        FROM user_events
+        FROM events
     "#;
     let rows = db.query(sql, &[]).await.unwrap();
-    println!("============ USER_EVENTS ==================");
+    println!("============ events ==================");
     for row in rows {
         let event_id: Uuid = row.get("event_id");
         println!("============ ROW -> {event_id} ==================");
@@ -375,13 +375,13 @@ async fn print_events(db: &Client) {
         println!(" ---->>>> data: {envelope:#?}");
         println!(" ---->>>> found");
     }
-    println!("============ USER_EVENTS END ==================");
+    println!("============ events END ==================");
 }
 
 async fn print_event_by_event_id(db: &Client, id: Uuid) {
     let sql = r#"
         SELECT event_id, aggregate_type, aggregate_id, envelope, event_name
-        FROM user_events
+        FROM events
         WHERE event_id = $1
         LIMIT 1;
     "#;

@@ -46,7 +46,7 @@ impl EventStore for UserEventStore {
         if !events.is_empty() {
             events_sql.push_str(
                 r#"
-                INSERT INTO user_events (envelope)
+                INSERT INTO events (envelope)
                 VALUES
                 "#,
             );
@@ -110,7 +110,7 @@ impl EventStore for UserEventStore {
                      UNION ALL
                      -- EVENTS NEWER THAN THE SNAPSHOT (or > 0 if no snapshot)
                      SELECT e.envelope, e.aggregate_id, e.occ_version
-                     FROM user_events e
+                     FROM events e
                      LEFT JOIN s ON s.aggregate_id = e.aggregate_id
                      WHERE e.aggregate_id = $1
                        AND e.occ_version > COALESCE(s.occ_version, 0)
