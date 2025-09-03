@@ -41,6 +41,7 @@ async fn create_user() {
         })
     );
     let expected_state = UserState {
+        aggregate_type: "user".to_string(),
         event_name: "snapshot".to_string(),
         aggregate_id: USER_ID_AGGREGATE_ID,
         username: "username".to_string(),
@@ -72,6 +73,7 @@ async fn delete_user() {
     assert_eq!(event.aggregate_id, USER_ID_AGGREGATE_ID);
     assert_eq!(event.data, UserEvent::Deleted);
     let expected_state = UserState {
+        aggregate_type: "user".to_string(),
         event_name: "snapshot".to_string(),
         aggregate_id: USER_ID_AGGREGATE_ID,
         username: "username".to_string(),
@@ -117,6 +119,7 @@ async fn set_password() {
         "Unable to login with the password"
     );
     let expected_state = UserState {
+        aggregate_type: "user".to_string(),
         event_name: "snapshot".to_string(),
         aggregate_id: USER_ID_AGGREGATE_ID,
         username: "username".to_string(),
@@ -148,6 +151,7 @@ async fn disable_then_enable_user() {
     assert_eq!(event.aggregate_id, USER_ID_AGGREGATE_ID);
     assert_eq!(event.data, UserEvent::Disabled);
     let expected_state = UserState {
+        aggregate_type: "user".to_string(),
         event_name: "snapshot".to_string(),
         aggregate_id: USER_ID_AGGREGATE_ID,
         username: "username".to_string(),
@@ -172,6 +176,7 @@ async fn disable_then_enable_user() {
     assert_eq!(event.aggregate_id, USER_ID_AGGREGATE_ID);
     assert_eq!(event.data, UserEvent::Enabled);
     let expected_state = UserState {
+        aggregate_type: "user".to_string(),
         event_name: "snapshot".to_string(),
         aggregate_id: USER_ID_AGGREGATE_ID,
         username: "username".to_string(),

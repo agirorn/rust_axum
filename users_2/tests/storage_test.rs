@@ -144,6 +144,7 @@ async fn stream_snap_and_created(pool: pgmt::Pool) {
         .into(),
     );
     let state = UserState {
+        aggregate_type: "user".to_string(),
         event_name: "snapshot".to_string(),
         aggregate_id: USER_ID_AGGREGATE_ID,
         username: "username".to_string(),
@@ -188,6 +189,7 @@ async fn save_events_test(pool: pgmt::Pool) {
         .into(),
     );
     let state = UserState {
+        aggregate_type: "user".to_string(),
         event_name: "snapshot".to_string(),
         aggregate_id: USER_ID_AGGREGATE_ID,
         username: "username".to_string(),
@@ -215,9 +217,11 @@ async fn save_events_test(pool: pgmt::Pool) {
     let states = get_states(&db).await.unwrap();
     let expected = vec![StateRow {
         aggregate_id: USER_ID_AGGREGATE_ID,
+        aggregate_type: "user".to_string(),
         occ_version: 1,
         timestamp: states[0].timestamp,
         state: UserState {
+            aggregate_type: "user".to_string(),
             event_name: "snapshot".to_string(),
             aggregate_id: USER_ID_AGGREGATE_ID,
             username: "username".to_string(),
@@ -323,6 +327,7 @@ async fn get_events(db: &Client) -> users_2::error::Result<Vec<EventRow>> {
 
 #[derive(Debug, PartialEq)]
 struct StateRow {
+    aggregate_type: String,
     aggregate_id: Uuid,
     occ_version: i64,
     timestamp: DateTime<Utc>,
@@ -332,6 +337,7 @@ struct StateRow {
 impl From<tokio_postgres::Row> for StateRow {
     fn from(row: tokio_postgres::Row) -> Self {
         Self {
+            aggregate_type: row.get("aggregate_type"),
             aggregate_id: row.get("aggregate_id"),
             occ_version: row.get("occ_version"),
             timestamp: row.get("timestamp"),
@@ -342,7 +348,7 @@ impl From<tokio_postgres::Row> for StateRow {
 
 async fn get_states(db: &Client) -> users_2::error::Result<Vec<StateRow>> {
     let sql = r#"
-        SELECT aggregate_id, occ_version, timestamp, state
+        SELECT aggregate_id, aggregate_type, occ_version, timestamp, state
         FROM states
     "#;
     Ok(db

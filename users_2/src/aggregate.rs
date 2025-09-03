@@ -26,6 +26,7 @@ impl Aggregate for User {
         Self {
             events: vec![],
             state: UserState {
+                aggregate_type: "user".to_string(),
                 event_name: "snapshot".to_string(),
                 aggregate_id: *aggregate_id,
                 username: "".to_string(),

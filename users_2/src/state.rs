@@ -5,6 +5,7 @@ use uuid::Uuid;
 pub struct UserState {
     pub event_name: String,
     pub aggregate_id: Uuid,
+    pub aggregate_type: String,
     pub username: String,
     pub has_password: bool,
     pub occ_version: u64,
